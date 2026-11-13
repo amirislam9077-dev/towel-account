@@ -18,8 +18,8 @@ export const YARNS = [
 // Shortage % fields of a quality (all added together)
 export const SHORTAGE_FIELDS = [
   ['loomShortage', 'Loom Shortage %'],
-  ['stitchingShortage', 'Stitching Shortage %'],
   ['dyeingShortage', 'Bleaching / Dyeing %'],
+  ['stitchingShortage', 'Stitching Shortage %'],
   ['bGrade', 'B Grade %'],
 ];
 export const totalShortage = (q) => SHORTAGE_FIELDS.reduce((s, [k]) => s + num(q[k]), 0);
