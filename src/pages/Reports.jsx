@@ -17,6 +17,20 @@ const pcsOf = (po) => (po.qualities || []).reduce((s, q) => s + (q.items || []).
 const uniq = (a) => [...new Set(a.filter(Boolean))];
 const byNo = (a, b) => String(a.no || '').localeCompare(String(b.no || ''), undefined, { numeric: true });
 
+// challans of one PO yarn line (quality + Pile / Ground / Weft / Fancy): challan no, paper no, brand, bags
+const slotChallans = (ycs, type, field, poId, qKey, y) => (ycs || [])
+  .filter((c) => challanType(c) === type && c[field] === poId)
+  .flatMap((c) => (c.lines || []).filter((l) => l.qKey === qKey && l.y === y && num(l.bags))
+    .map((l) => ({ no: c.no, paper: c.challanNo || '', brand: String(l.brand || '').trim(), bags: num(l.bags), date: c.date })));
+const challanText = (list) => list.map((c) => `${c.no}${c.paper ? ` (${c.paper})` : ''}: ${fmt(c.bags)}`).join(', ');
+// extra filters of the receive / issue balance reports
+const BAL_PICKS = [
+  { key: 'yarn', label: 'All yarn counts', get: (r) => r.yarn },
+  { key: 'challan', label: 'All challans', get: (r) => r.chs.map((c) => c.no) },
+  { key: 'brand', label: 'All brands', get: (r) => r.chs.map((c) => c.brand).filter(Boolean) },
+  { key: 'for', label: 'Pile / Ground / Weft / Fancy', get: (r) => r.for },
+];
+
 const STATUS_OPTS = [
   ['active', 'Open + Closed'],
   ['open', 'Open'],
@@ -320,11 +334,14 @@ export const REPORTS = {
     rows: ({ epos, allYcs, name }) => epos.flatMap((p) => yarnBalance(p, 'receive', allYcs).slots.map((s) => ({
       _link: `/towel/yarn-challan?epo=${p.id}`, no: p.no, date: p.date, party: name(p.exporterId),
       quality: `Q${s.qi + 1} ${s.quality}`, for: s.name, yarn: s.text, need: s.need, done: s.done, balance: s.balance,
+      chs: slotChallans(allYcs, 'receive', 'exporterPoId', p.id, s.qKey, s.y),
     }))),
+    picks: BAL_PICKS,
     rowClass: (r) => (r.balance > 0 ? 'warn-row' : r.balance < 0 ? 'bad-row' : 'good-row'),
     cols: [
       T('Exporter PO', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Exporter', (r) => r.party),
       T('Quality', (r) => r.quality, { wrap: true }), T('For', (r) => r.for), T('Yarn', (r) => r.yarn),
+      T('Challan No (paper): Bags', (r) => challanText(r.chs), { wrap: true }), T('Brand', (r) => uniq(r.chs.map((c) => c.brand)).join(', ')),
       N('Bags Needed', (r) => r.need, 0, { chip: '' }), N('Received', (r) => r.done, 0, { chip: 'net' }), N('Balance', (r) => r.balance, 0, { chip: 'base' }),
     ],
   },
@@ -335,11 +352,14 @@ export const REPORTS = {
     rows: ({ lpos, allYcs, name, epoOf }) => lpos.flatMap((p) => yarnBalance(p, 'issue', allYcs).slots.map((s) => ({
       _link: `/towel/yarn-challan?lpo=${p.id}`, no: p.no, date: p.date, party: name(p.loomId), epo: epoOf(p.exporterPoId)?.no || '',
       quality: `Q${s.qi + 1} ${s.quality}`, for: s.name, yarn: s.text, need: s.need, done: s.done, balance: s.balance,
+      chs: slotChallans(allYcs, 'issue', 'loomPoId', p.id, s.qKey, s.y),
     }))),
+    picks: BAL_PICKS,
     rowClass: (r) => (r.balance > 0 ? 'warn-row' : r.balance < 0 ? 'bad-row' : 'good-row'),
     cols: [
       T('Loom PO', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Loom', (r) => r.party),
       T('Exporter PO', (r) => r.epo), T('Quality', (r) => r.quality, { wrap: true }), T('For', (r) => r.for), T('Yarn', (r) => r.yarn),
+      T('Challan No (paper): Bags', (r) => challanText(r.chs), { wrap: true }), T('Brand', (r) => uniq(r.chs.map((c) => c.brand)).join(', ')),
       N('Bags Required', (r) => r.need, 0, { chip: '' }), N('Issued', (r) => r.done, 0, { chip: 'net' }), N('Balance', (r) => r.balance, 0, { chip: 'base' }),
     ],
   },
@@ -586,9 +606,11 @@ export default function Reports() {
     const ctx = { epos, lpos, allLpos: data.lpos, ycs, allYcs: data.ycs || [], name, epoOf, lpoOf, basis, basisPos: (basis === 'lpo' ? lpos : epos).slice().sort(byNo) };
     let rows = R.rows(ctx).map((r) => (r.exporterId && !r.party ? { ...r, party: name(r.exporterId) } : r));
     // dropdown values of the extra filters, then apply them
+    // a filter value can be one text or a list (e.g. all challan nos of a line)
+    const vals = (f, r) => [].concat(f.get(r) ?? []).map((v) => String(v).trim()).filter(Boolean);
     const pickOpts = Object.fromEntries((R.picks || []).map((f) => [f.key,
-      uniq(rows.map((r) => String(f.get(r) || '').trim())).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))]));
-    for (const f of R.picks || []) if (picks[f.key]) rows = rows.filter((r) => String(f.get(r) || '').trim() === picks[f.key]);
+      uniq(rows.flatMap((r) => vals(f, r))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))]));
+    for (const f of R.picks || []) if (picks[f.key]) rows = rows.filter((r) => vals(f, r).includes(picks[f.key]));
     if (q.trim()) {
       const s = q.trim().toLowerCase();
       rows = rows.filter((r) => R.cols.some((c) => String(c.get(r) ?? '').toLowerCase().includes(s)));
