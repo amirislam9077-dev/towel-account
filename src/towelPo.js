@@ -17,10 +17,7 @@ export const YARNS = [
 
 // Shortage % fields of a quality (all added together)
 export const SHORTAGE_FIELDS = [
-  ['pileShortage', 'Pile Shortage %'],
-  ['groundShortage', 'Ground Shortage %'],
-  ['weftShortage', 'Weft Shortage %'],
-  ['fancyShortage', 'Fancy Shortage %'],
+  ['loomShortage', 'Loom Shortage %'],
   ['stitchingShortage', 'Stitching Shortage %'],
   ['dyeingShortage', 'Bleaching / Dyeing %'],
   ['bGrade', 'B Grade %'],
@@ -146,7 +143,7 @@ export const emptyQuality = () => ({
   weft: '16', weftType: 'Single', weftBlend: 'Cotton', weftSpin: 'OE', weftRate: '', weftPct: '25',
   fancy: '20', fancyType: 'Single', fancyBlend: 'Polyester', fancySpin: 'Carded', fancyRate: '', fancyPct: '10', // changing Fancy % takes it off Weft
   // shortage % defaults (total 10 %)
-  pileShortage: '2', groundShortage: '1', weftShortage: '1', fancyShortage: '0', stitchingShortage: '3', dyeingShortage: '2', bGrade: '1',
+  loomShortage: '4', stitchingShortage: '3', dyeingShortage: '2', bGrade: '1',
   items: [emptyItem()],
 });
 

@@ -926,7 +926,7 @@ body.theme-looms .dc-rep .dash-ico, body.theme-looms .dc-ledger .dash-ico { back
 .towel-yarn .yarn-name b { font-size: 14px; }
 .towel-yarn .yarn-name .yarn-sum { font-size: 11px; font-weight: 500; color: #d6e9f0; line-height: 1.2; }
 .pct-warn { margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: #fdecea; border: 1px solid #f1b0a8; color: var(--danger); font-weight: 600; font-size: 12.5px; }
-.grid.towel-shortage { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.grid.towel-shortage { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .towel-items-wrap { overflow-x: auto; }
 table.towel-items { min-width: 1050px; }
 table.towel-items th, table.towel-items td { padding: 4px 6px; vertical-align: middle; }
