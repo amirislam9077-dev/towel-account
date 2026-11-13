@@ -34,6 +34,7 @@ const SEED_LOOKUPS = {
   vehicleNo: [],
   driverPhone: [],
   yarnBrand: [],
+  deliveryPlace: [],
 };
 
 const rid = () => Math.random().toString(36).slice(2, 12);

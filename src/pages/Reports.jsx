@@ -316,7 +316,7 @@ export const REPORTS = {
         po: po?.no || '', party: name(t === 'issue' ? po?.loomId : po?.exporterId), epo: ep?.no || '',
         quality: l.quality, for: yarnName(l.y), yarn: l.yarnText, brand: l.brand || '', bags: num(l.bags),
         recv: t === 'receive' ? num(l.bags) : 0, iss: t === 'issue' ? num(l.bags) : 0,
-        vehicle: c.vehicleNo || '', godown: c.godown || '', paper: c.challanNo || '',
+        vehicle: c.vehicleNo || '', place: c.deliveryPlace || '', godown: c.godown || '', paper: c.challanNo || '',
       }));
     }),
     cols: [
@@ -324,7 +324,7 @@ export const REPORTS = {
       T('PO', (r) => r.po), T('Party', (r) => r.party), T('Exporter PO', (r) => r.epo), T('Quality', (r) => r.quality, { wrap: true }),
       T('For', (r) => r.for), T('Yarn', (r) => r.yarn), T('Brand', (r) => r.brand),
       N('Received Bags', (r) => r.recv, 0, { chip: 'net' }), N('Issued Bags', (r) => r.iss, 0, { chip: 'base' }),
-      T('Vehicle', (r) => r.vehicle), T('Godown', (r) => r.godown), T('Paper No', (r) => r.paper),
+      T('Delivery Place', (r) => r.place), T('Vehicle', (r) => r.vehicle), T('Godown', (r) => r.godown), T('Paper No', (r) => r.paper),
     ],
   },
 

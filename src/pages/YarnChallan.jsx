@@ -19,7 +19,7 @@ const COLL = 'yarn-challans';
 
 const blank = (type = 'receive') => ({
   no: '', date: today(), type, exporterPoId: '', loomPoId: '', challanNo: '',
-  vehicleNo: '', driverPhone: '', godown: 'Al Hasan Godown', remarks: '', gatePass: '', lines: [],
+  vehicleNo: '', driverPhone: '', godown: 'Al Hasan Godown', deliveryPlace: '', remarks: '', gatePass: '', lines: [],
 });
 
 // one line per yarn of the PO (bags empty); saved bags / brand kept when editing
@@ -349,6 +349,7 @@ export default function YarnChallan() {
             <label>Challan Ref No<input value={ch.no} disabled /></label>
             <label>Date *<DateInput value={ch.date} onChange={(v) => setCh({ ...ch, date: v })} required /></label>
             <label>Challan No (paper)<input value={ch.challanNo} onChange={set('challanNo')} /></label>
+            <label className="span2">Delivery Place ({isIssue ? 'delivered to' : 'delivered from'})<LookupSelect value={ch.deliveryPlace || ''} onChange={(v) => setCh({ ...ch, deliveryPlace: v })} {...bind('deliveryPlace', 'delivery place')} /></label>
             <label>Vehicle No<LookupSelect value={ch.vehicleNo || ''} onChange={(v) => setCh({ ...ch, vehicleNo: v })} {...bind('vehicleNo', 'vehicle no')} /></label>
             <label>Driver / Phone<LookupSelect value={ch.driverPhone || ''} onChange={(v) => setCh({ ...ch, driverPhone: v })} {...bind('driverPhone', 'driver / phone')} /></label>
             <label className="span2">{isIssue ? 'Godown (issued from) *' : 'Godown (received into) *'}<LookupSelect value={ch.godown || ''} onChange={(v) => setCh({ ...ch, godown: v })} {...bind('godown', 'godown')} required /></label>
@@ -403,7 +404,7 @@ export default function YarnChallan() {
           <thead>
             <tr>
               <th>Ref No</th><th>Date</th><th>Type</th><th>PO</th><th>Party</th><th>Yarn (for · count · bags)</th>
-              <th className="num">Bags</th><th>Vehicle</th><th>Driver</th><th>Godown</th><th>Paper No</th><th className="no-print"></th>
+              <th className="num">Bags</th><th>Delivery Place</th><th>Vehicle</th><th>Driver</th><th>Godown</th><th>Paper No</th><th className="no-print"></th>
             </tr>
           </thead>
           <tbody>
@@ -423,6 +424,7 @@ export default function YarnChallan() {
                     ))}
                   </td>
                   <td className="num strong">{fmt(challanBags(c))}</td>
+                  <td>{c.deliveryPlace}</td>
                   <td>{c.vehicleNo}</td>
                   <td>{c.driverPhone}</td>
                   <td>{c.godown}</td>
@@ -437,7 +439,7 @@ export default function YarnChallan() {
                 </tr>
               );
             })}
-            {!list.length && <tr><td colSpan={12} className="empty">{po ? `No challan made for this ${T.poLabel} yet` : 'No yarn challans yet'}</td></tr>}
+            {!list.length && <tr><td colSpan={13} className="empty">{po ? `No challan made for this ${T.poLabel} yet` : 'No yarn challans yet'}</td></tr>}
           </tbody>
         </table>
       </div>
