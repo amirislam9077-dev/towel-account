@@ -219,7 +219,7 @@ export const REPORTS = {
         const need = wholeBags(y.bags);
         const got = done[slotKey(q.key, y.p)] || 0;
         return {
-          key: `${q.key}|${y.p}`, q: `Q${qi + 1}`, quality: qualityTitle(q), y: y.p, name: y.name, text: y.text || '—', pct: y.pct,
+          key: `${q.key}|${y.p}`, qk: q.key, q: `Q${qi + 1}`, quality: qualityTitle(q), y: y.p, name: y.name, text: y.text || '—', pct: y.pct,
           shortage: totalShortage(q), lbs: y.lbs, need, got, balance: need - got,
         };
       }));
@@ -228,6 +228,13 @@ export const REPORTS = {
         po: { id: p.id, no: p.no, date: p.date, party: name(basis === 'lpo' ? p.loomId : p.exporterId), ref: p.refNo || '',
           epo: ep?.no || '', link: `${basis === 'lpo' ? '/towel/loom-po' : '/towel/po'}/${p.id}/edit` },
         verb: basis === 'lpo' ? 'Issued' : 'Received',
+        // each quality: finish, packing and its items with size, weight, pcs and Lbs
+        quals: Object.fromEntries((p.qualities || []).map((q) => [q.key, {
+          finish: [q.finish, q.packing].filter(Boolean).join(' · '),
+          items: (q.items || []).filter((it) => it.item || num(it.qty)).map((it) => ({
+            item: it.item || 'Item', size: sizeText(it), wt: num(it.pcsWt), pcs: num(it.qty), lbs: itemLbs(it),
+          })),
+        }])),
         lines, lbs: lines.reduce((s, x) => s + x.lbs, 0), need: lines.reduce((s, x) => s + x.need, 0),
         got: lines.reduce((s, x) => s + x.got, 0), balance: lines.reduce((s, x) => s + x.balance, 0),
       };
@@ -476,14 +483,25 @@ function YarnGroupView({ groups, nav }) {
           <table className="rep-table">
             <thead>
               <tr>
-                <th>Quality</th><th>For</th><th>Yarn (Blend · Count · Spinning)</th><th className="num">%</th><th className="num">Shortage %</th>
+                <th>Quality · Items (Size · Weight · Pcs)</th><th>For</th><th>Yarn (Blend · Count · Spinning)</th><th className="num">%</th><th className="num">Shortage %</th>
                 <th className="num">Bags Needed</th><th className="num">{g.verb} Bags</th><th className="num">Balance</th>
               </tr>
             </thead>
             <tbody>
-              {g.lines.map((l) => (
-                <tr key={l.key}>
-                  <td className="wrap"><b>{l.q}</b> <span className="muted">{l.quality}</span></td>
+              {g.lines.map((l, li) => (
+                <tr key={l.key} className={li && g.lines[li - 1].qk !== l.qk ? 'q-start' : ''}>
+                  {(li === 0 || g.lines[li - 1].qk !== l.qk) && (
+                    <td className="wrap q-cell" rowSpan={g.lines.filter((x) => x.qk === l.qk).length}>
+                      <div><b>{l.q}</b> {l.quality}</div>
+                      {g.quals[l.qk]?.finish && <div className="muted q-finish">{g.quals[l.qk].finish}</div>}
+                      {(g.quals[l.qk]?.items || []).map((it, i) => (
+                        <div key={i} className="q-item">
+                          <b>{it.item}</b>{it.size && <> · {it.size}</>}{it.wt ? <> · {fmt(it.wt)} Gm</> : null}
+                          {' '}· <b>{fmt(it.pcs)}</b> Pcs · {fmt(it.lbs, 2)} Lbs
+                        </div>
+                      ))}
+                    </td>
+                  )}
                   <td><span className={`yarn-tag ${l.y}`}>{l.y === 'weft' ? 'Weft (Bobbin)' : l.name}</span></td>
                   <td className="strong">{l.text}</td>
                   <td className="num">{fmt(l.pct)}%</td>

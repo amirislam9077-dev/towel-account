@@ -1199,3 +1199,7 @@ th { background: #f3f4fa; }
   background: linear-gradient(90deg, #1e1b4b, #312e81); color: #fff; font-weight: 600; }
 .po-box.grand b { margin-left: auto; font-size: 17px; }
 @media print { .po-box { break-inside: avoid; } }
+.po-box td.q-cell { vertical-align: top; background: #fafbff; border-right: 1px solid #eef0f6; min-width: 300px; max-width: 420px; font-size: 13px; }
+.po-box .q-finish { font-size: 12px; font-style: italic; margin-top: 2px; }
+.po-box .q-item { margin-top: 5px; padding: 3px 8px; border-radius: 6px; background: #eef0fd; color: var(--primary-dark); font-size: 12px; }
+.po-box tr.q-start td { border-top: 2px solid var(--border); }
