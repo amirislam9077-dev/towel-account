@@ -37,7 +37,9 @@ export const REPORTS = {
         // exporter: first word of the name only (Eastern Textiles (Pvt) Ltd → Eastern)
         _link: `/towel/po/${p.id}/edit`, no: p.no, date: p.date, party: name(p.exporterId).trim().split(/\s+/)[0], ref: p.refNo || '',
         qualities: uniq((p.qualities || []).map(qualityTitle)).join(' ; '),
-        items: uniq((p.qualities || []).flatMap((q) => (q.items || []).map((i) => i.item))).join(', '),
+        // item with towel size (W x L) and weight: "Hand Towel 16 X 27 · 112 Gm"
+        items: uniq((p.qualities || []).flatMap((q) => (q.items || []).map((i) =>
+          [i.item, sizeText(i), num(i.pcsWt) ? `· ${fmt(i.pcsWt)} Gm` : ''].filter(Boolean).join(' ')))).join(', '),
         delivery: p.deliveryDate, ...t, status: p.status,
         // bags of each yarn: Pile / Ground / Weft (Bobbin) / Fancy
         ...Object.fromEntries(YARNS.map(([y]) => [y + 'Bags', (p.qualities || []).reduce((s, q) => s + qualityCalc(q).yarns.find((x) => x.p === y).bags, 0)])),
@@ -45,7 +47,7 @@ export const REPORTS = {
     }),
     cols: [
       T('PO No', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Exporter', (r) => r.party),
-      T('Ref No', (r) => r.ref), T('Quality', (r) => r.qualities, { wrap: true }), T('Items', (r) => r.items, { wrap: true }),
+      T('Ref No', (r) => r.ref), T('Quality', (r) => r.qualities, { wrap: true }), T('Items (Size · Weight)', (r) => r.items, { wrap: true }),
       N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }),
       ...YARNS.map(([y, n]) => N(`${y === 'weft' ? 'Bobbin' : n} Bags`, (r) => r[y + 'Bags'], 2, { chip: 'yarn-' + y })),
       N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
