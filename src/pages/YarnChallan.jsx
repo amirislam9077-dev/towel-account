@@ -159,8 +159,8 @@ export default function YarnChallan() {
     if (!po) return setMsg({ type: 'err', text: `Select the ${T.poLabel}` });
     if (thisBags <= 0) return setMsg({ type: 'err', text: `Enter ${T.verb} Bags in at least one yarn line` });
     if (!String(ch.godown || '').trim()) {
-      setPopup({ title: 'Godown is required', text: `Please select the godown the yarn is ${isIssue ? 'issued from' : 'received into'}.` });
-      return setMsg({ type: 'err', text: 'Select the Godown' });
+      setPopup({ title: isIssue ? 'Yarn Issued From is required' : 'Godown is required', text: isIssue ? 'Please select where the yarn is issued from.' : 'Please select the godown the yarn is received into.' });
+      return setMsg({ type: 'err', text: isIssue ? 'Select Yarn Issued From' : 'Select the Godown' });
     }
     setSaving(true);
     try {
@@ -349,10 +349,10 @@ export default function YarnChallan() {
             <label>Challan Ref No<input value={ch.no} disabled /></label>
             <label>Date *<DateInput value={ch.date} onChange={(v) => setCh({ ...ch, date: v })} required /></label>
             <label>Challan No (paper)<input value={ch.challanNo} onChange={set('challanNo')} /></label>
-            <label className="span2">Delivery Place ({isIssue ? 'delivered to' : 'delivered from'})<LookupSelect value={ch.deliveryPlace || ''} onChange={(v) => setCh({ ...ch, deliveryPlace: v })} {...bind('deliveryPlace', 'delivery place')} /></label>
+            <label className="span2">{isIssue ? 'Loom Delivery Place (yarn delivered at)' : 'Delivery Place (delivered from)'}<LookupSelect value={ch.deliveryPlace || ''} onChange={(v) => setCh({ ...ch, deliveryPlace: v })} {...bind('deliveryPlace', 'delivery place')} /></label>
             <label>Vehicle No<LookupSelect value={ch.vehicleNo || ''} onChange={(v) => setCh({ ...ch, vehicleNo: v })} {...bind('vehicleNo', 'vehicle no')} /></label>
             <label>Driver / Phone<LookupSelect value={ch.driverPhone || ''} onChange={(v) => setCh({ ...ch, driverPhone: v })} {...bind('driverPhone', 'driver / phone')} /></label>
-            <label className="span2">{isIssue ? 'Godown (issued from) *' : 'Godown (received into) *'}<LookupSelect value={ch.godown || ''} onChange={(v) => setCh({ ...ch, godown: v })} {...bind('godown', 'godown')} required /></label>
+            <label className="span2">{isIssue ? 'Yarn Issued From *' : 'Godown (received into) *'}<LookupSelect value={ch.godown || ''} onChange={(v) => setCh({ ...ch, godown: v })} {...bind('godown', 'godown')} required /></label>
             <label className="span2">Remarks<input value={ch.remarks} onChange={set('remarks')} /></label>
             <label>
               Gate Pass Picture
@@ -404,7 +404,7 @@ export default function YarnChallan() {
           <thead>
             <tr>
               <th>Ref No</th><th>Date</th><th>Type</th><th>PO</th><th>Party</th><th>Yarn (for · count · bags)</th>
-              <th className="num">Bags</th><th>Delivery Place</th><th>Vehicle</th><th>Driver</th><th>Godown</th><th>Paper No</th><th className="no-print"></th>
+              <th className="num">Bags</th><th>Delivery Place</th><th>Vehicle</th><th>Driver</th><th>Godown / Issued From</th><th>Paper No</th><th className="no-print"></th>
             </tr>
           </thead>
           <tbody>

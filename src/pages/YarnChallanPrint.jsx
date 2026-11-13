@@ -50,8 +50,8 @@ export default function YarnChallanPrint() {
               <th>{issue ? 'EXPORTER PO #:' : 'REF NO:'}</th><td>{issue ? `${ep.no || ''}${exporter.name ? ` · ${exporter.name}` : ''}` : ep.refNo}</td>
             </tr>
             <tr><th>VEHICLE NO:</th><td>{ch.vehicleNo}</td><th>DRIVER / PHONE:</th><td>{ch.driverPhone}</td></tr>
-            <tr><th>GODOWN:</th><td>{ch.godown}</td><th>CHALLAN NO:</th><td>{ch.challanNo}</td></tr>
-            <tr><th>DELIVERY PLACE:</th><td colSpan={3}>{ch.deliveryPlace}</td></tr>
+            <tr><th>{issue ? 'YARN ISSUED FROM:' : 'GODOWN:'}</th><td>{ch.godown}</td><th>CHALLAN NO:</th><td>{ch.challanNo}</td></tr>
+            <tr><th>{issue ? 'LOOM DELIVERY PLACE:' : 'DELIVERY PLACE:'}</th><td colSpan={3}>{ch.deliveryPlace}</td></tr>
           </tbody>
         </table>
 
