@@ -207,29 +207,6 @@ export const REPORTS = {
     ],
   },
 
-  'quality-wise': {
-    group: 'PO Reports', title: 'Quality-wise Summary', sub: 'Each towel quality: construction, pcs, Lbs, shortage, net bags and amount',
-    src: 'epo',
-    rows: ({ epos }) => {
-      const m = {};
-      for (const p of epos) {
-        for (const q of p.qualities || []) {
-          const c = qualityCalc(q);
-          const k = qualityTitle(q) || '—';
-          const g = (m[k] ||= { quality: k, finish: new Set(), nos: [], pcs: 0, lbs: 0, netLbs: 0, netBags: 0, amount: 0 });
-          if (q.finish) g.finish.add(q.finish);
-          g.nos.push(p.no); g.pcs += c.pcs; g.lbs += c.lbs; g.netLbs += c.netLbs; g.netBags += c.netBags; g.amount += c.amount;
-        }
-      }
-      return Object.values(m).map((g) => ({ ...g, shortage: g.lbs ? (g.netLbs / g.lbs - 1) * 100 : 0 }));
-    },
-    cols: [
-      T('Quality', (r) => r.quality, { strong: true, wrap: true }), T('Finish', (r) => [...r.finish].join(' ; '), { wrap: true }),
-      T('Exporter POs', (r) => uniq(r.nos).join(', '), { wrap: true }), N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }),
-      N('Shortage %', (r) => r.shortage, 2, { total: false }), N('Net Lbs', (r) => r.netLbs, 2), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }), N('Amount', (r) => r.amount, 2, { chip: 'total' }),
-    ],
-  },
-
   'yarn-requirement': {
     group: 'Yarn Reports', title: 'Yarn Requirement (Count-wise)', sub: 'Count-wise bags needed: Pile, Ground, Weft and Fancy with shortage, and yarn cost',
     src: 'basis', basis: true,
