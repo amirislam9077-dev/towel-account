@@ -407,8 +407,15 @@ export default function TowelPo() {
                     <span className="sec-no">3</span>Items (Size, Weight, Qty &amp; Rate)
                     <span className="sec-ref" title="Item names · total pcs · total lbs · amount">
                       <small>TOTAL</small>{' '}
-                      {/* item names of this quality (each once), e.g. "Hand Towel, Wash Cloth" */}
-                      {[...new Set(qa.items.map((it) => String(it.item || '').trim()).filter(Boolean))].join(', ')}
+                      {/* each item: name, size W x L and Lbs per dozen, e.g. "Hand Towel 16 x 27 (2.99 Lbs/Dz), Wash Cloth 13 x 13 (0.79 Lbs/Dz)" */}
+                      {qa.items
+                        .filter((it) => String(it.item || '').trim())
+                        .map((it) => [
+                          it.item.trim(),
+                          it.width || it.length ? `${it.width || '?'} x ${it.length || '?'}` : '',
+                          num(it.pcsWt) ? `(${fmt(lbsPerDozen(it), 2)} Lbs/Dz)` : '',
+                        ].filter(Boolean).join(' '))
+                        .join(', ')}
                       {qa.items.some((it) => it.item) ? ' · ' : ''}
                       {fmt(c.pcs)} Pcs · {fmt(c.lbs, 2)} Lbs · Rs {fmt(c.amount, 2)}
                     </span>
