@@ -1,0 +1,13 @@
+node_modules
+dist
+
+# database file (your real orders) — not uploaded to GitHub
+server/data.json
+server/data.json.tmp
+
+# order photo sent on WhatsApp
+*.jpeg
+
+.vercel
+.env*
+.claude/
