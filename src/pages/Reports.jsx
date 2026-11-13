@@ -7,7 +7,7 @@ import { api } from '../api.js';
 import { fmt, fmtDate, num } from '../util.js';
 import DateInput from '../components/DateInput.jsx';
 import { YARNS, poTotals, qualityCalc, qualityTitle, sizeText, itemLbs, itemAmount, givenToLooms, totalShortage,
-  yarnBalance, challanType, yarnName } from '../towelPo.js';
+  yarnBalance, challanType, yarnName, challanDone, wholeBags, slotKey } from '../towelPo.js';
 
 // column helpers: T = text, N = number (dec = decimals, total = add in footer)
 const T = (label, get, o = {}) => ({ label, get, ...o });
@@ -208,40 +208,49 @@ export const REPORTS = {
   },
 
   'yarn-requirement': {
-    group: 'Yarn Reports', title: 'Yarn Requirement (Count-wise)', sub: 'Count-wise bags needed: Pile, Ground, Weft and Fancy with shortage, and yarn cost',
+    group: 'Yarn Reports', title: 'Yarn Requirement (Count-wise)', sub: 'Bags needed for Pile, Ground, Weft and Fancy (with shortage), bags received / issued against the PO, and balance',
     src: 'basis', basis: true,
     // PO-wise view: a separate box for every PO with its yarn lines
     groupView: 'yarn', groupLabels: ['PO-wise (boxes)', 'Count-wise'],
-    groups: ({ basisPos, name, basis, epoOf }) => basisPos.map((p) => {
-      const lines = (p.qualities || []).flatMap((q, qi) => qualityCalc(q).yarns.filter((y) => y.lbs).map((y) => ({
-        key: `${q.key}|${y.p}`, q: `Q${qi + 1}`, quality: qualityTitle(q), y: y.p, name: y.name, text: y.text || '—', pct: y.pct,
-        shortage: totalShortage(q), lbs: y.lbs, bags: y.bags, rate: y.rate, cost: y.cost,
-      })));
+    groups: ({ basisPos, name, basis, epoOf, allYcs }) => basisPos.map((p) => {
+      // bags received (Exporter PO) / issued (Loom PO) against this PO by yarn challans
+      const done = challanDone(allYcs, basis === 'lpo' ? 'issue' : 'receive', p.id);
+      const lines = (p.qualities || []).flatMap((q, qi) => qualityCalc(q).yarns.filter((y) => y.lbs).map((y) => {
+        const need = wholeBags(y.bags);
+        const got = done[slotKey(q.key, y.p)] || 0;
+        return {
+          key: `${q.key}|${y.p}`, q: `Q${qi + 1}`, quality: qualityTitle(q), y: y.p, name: y.name, text: y.text || '—', pct: y.pct,
+          shortage: totalShortage(q), lbs: y.lbs, need, got, balance: need - got,
+        };
+      }));
       const ep = basis === 'lpo' ? epoOf(p.exporterPoId) : null;
       return {
         po: { id: p.id, no: p.no, date: p.date, party: name(basis === 'lpo' ? p.loomId : p.exporterId), ref: p.refNo || '',
           epo: ep?.no || '', link: `${basis === 'lpo' ? '/towel/loom-po' : '/towel/po'}/${p.id}/edit` },
-        lines, lbs: lines.reduce((s, x) => s + x.lbs, 0), bags: lines.reduce((s, x) => s + x.bags, 0), cost: lines.reduce((s, x) => s + x.cost, 0),
+        verb: basis === 'lpo' ? 'Issued' : 'Received',
+        lines, lbs: lines.reduce((s, x) => s + x.lbs, 0), need: lines.reduce((s, x) => s + x.need, 0),
+        got: lines.reduce((s, x) => s + x.got, 0), balance: lines.reduce((s, x) => s + x.balance, 0),
       };
     }),
-    rows: ({ basisPos }) => {
+    rows: ({ basisPos, basis, allYcs }) => {
       const m = {};
       for (const p of basisPos) {
+        const done = challanDone(allYcs, basis === 'lpo' ? 'issue' : 'receive', p.id);
         for (const q of p.qualities || []) {
           for (const y of qualityCalc(q).yarns) {
             if (!y.lbs) continue;
             const k = y.text || '—';
-            const g = (m[k] ||= { yarn: k, used: new Set(), nos: [], lbs: 0, bags: 0, cost: 0 });
-            g.used.add(y.name); g.nos.push(p.no); g.lbs += y.lbs; g.bags += y.bags; g.cost += y.cost;
+            const g = (m[k] ||= { yarn: k, used: new Set(), nos: [], lbs: 0, need: 0, got: 0 });
+            g.used.add(y.name); g.nos.push(p.no); g.lbs += y.lbs; g.need += wholeBags(y.bags); g.got += done[slotKey(q.key, y.p)] || 0;
           }
         }
       }
-      return Object.values(m).map((g) => ({ ...g, rate: g.bags ? g.cost / g.bags : 0 }));
+      return Object.values(m).map((g) => ({ ...g, balance: g.need - g.got }));
     },
     cols: [
       T('Yarn (Blend · Count · Spinning)', (r) => r.yarn, { strong: true }), T('Used as', (r) => YARNS.map(([, n]) => n).filter((n) => r.used.has(n)).join(', ')),
-      T('PO No', (r) => uniq(r.nos).join(', '), { wrap: true }), N('Net Lbs', (r) => r.lbs, 2, { chip: '' }), N('Bags', (r) => r.bags, 2, { chip: 'net' }),
-      N('Avg Rate / Bag', (r) => r.rate, 2, { total: false }), N('Yarn Cost', (r) => r.cost, 2, { chip: 'total' }),
+      T('PO No', (r) => uniq(r.nos).join(', '), { wrap: true }), N('Net Lbs', (r) => r.lbs, 2, { chip: '' }), N('Bags Needed', (r) => r.need, 0, { chip: '' }),
+      N('Received / Issued', (r) => r.got, 0, { chip: 'net' }), N('Balance', (r) => r.balance, 0, { chip: 'base' }),
     ],
   },
 
@@ -449,7 +458,8 @@ function GroupView({ groups, nav }) {
 
 // Yarn Requirement, PO-wise: a separate box for every PO, its Pile / Ground / Weft / Fancy yarn lines and totals
 function YarnGroupView({ groups, nav }) {
-  const tot = groups.reduce((t, g) => ({ lbs: t.lbs + g.lbs, bags: t.bags + g.bags, cost: t.cost + g.cost }), { lbs: 0, bags: 0, cost: 0 });
+  const tot = groups.reduce((t, g) => ({ lbs: t.lbs + g.lbs, need: t.need + g.need, got: t.got + g.got, balance: t.balance + g.balance }), { lbs: 0, need: 0, got: 0, balance: 0 });
+  const verb = groups[0]?.verb || 'Received';
   if (!groups.length) return <div className="table-wrap"><p className="empty">Nothing to show for these filters.</p></div>;
   return (
     <div className="po-boxes">
@@ -461,13 +471,13 @@ function YarnGroupView({ groups, nav }) {
             <b>{g.po.party}</b>
             {g.po.ref && <span className="ref-chip"><small>Ref</small> {g.po.ref}</span>}
             {g.po.epo && <span className="ref-chip"><small>Exporter PO</small> {g.po.epo}</span>}
-            <span className="po-box-sum">{fmt(g.lbs, 2)} Lbs · <b>{fmt(g.bags, 2)} Bags</b></span>
+            <span className="po-box-sum">Need <b>{fmt(g.need)}</b> · {g.verb} <b>{fmt(g.got)}</b> · Balance <b>{fmt(g.balance)}</b> Bags</span>
           </div>
           <table className="rep-table">
             <thead>
               <tr>
                 <th>Quality</th><th>For</th><th>Yarn (Blend · Count · Spinning)</th><th className="num">%</th><th className="num">Shortage %</th>
-                <th className="num">Net Lbs</th><th className="num">Bags</th><th className="num">Rate / Bag</th><th className="num">Yarn Cost</th>
+                <th className="num">Net Lbs</th><th className="num">Bags Needed</th><th className="num">{g.verb} Bags</th><th className="num">Balance</th>
               </tr>
             </thead>
             <tbody>
@@ -479,9 +489,9 @@ function YarnGroupView({ groups, nav }) {
                   <td className="num">{fmt(l.pct)}%</td>
                   <td className="num">{fmt(l.shortage, 2)}%</td>
                   <td className="num">{fmt(l.lbs, 2)}</td>
-                  <td className="num strong">{fmt(l.bags, 2)}</td>
-                  <td className="num">{fmt(l.rate, 2)}</td>
-                  <td className="num">{fmt(l.cost, 2)}</td>
+                  <td className="num strong">{fmt(l.need)}</td>
+                  <td className="num good">{fmt(l.got)}</td>
+                  <td className={`num strong ${l.balance > 0 ? 'warn' : l.balance < 0 ? 'bad' : 'good'}`}>{fmt(l.balance)}</td>
                 </tr>
               ))}
               {!g.lines.length && <tr><td colSpan={9} className="muted">No yarn % / weight on this PO</td></tr>}
@@ -489,7 +499,7 @@ function YarnGroupView({ groups, nav }) {
             <tfoot>
               <tr>
                 <td colSpan={5}>{g.po.no} TOTAL</td>
-                <td className="num">{fmt(g.lbs, 2)}</td><td className="num">{fmt(g.bags, 2)}</td><td></td><td className="num">{fmt(g.cost, 2)}</td>
+                <td className="num">{fmt(g.lbs, 2)}</td><td className="num">{fmt(g.need)}</td><td className="num">{fmt(g.got)}</td><td className="num">{fmt(g.balance)}</td>
               </tr>
             </tfoot>
           </table>
@@ -498,8 +508,9 @@ function YarnGroupView({ groups, nav }) {
       <div className="po-box grand">
         <span>GRAND TOTAL · {groups.length} PO(s)</span>
         <span>{fmt(tot.lbs, 2)} Lbs</span>
-        <b>{fmt(tot.bags, 2)} Bags</b>
-        <span>Yarn Cost {fmt(tot.cost, 2)}</span>
+        <span>Need {fmt(tot.need)} Bags</span>
+        <span>{verb} {fmt(tot.got)} Bags</span>
+        <b>Balance {fmt(tot.balance)} Bags</b>
       </div>
     </div>
   );
