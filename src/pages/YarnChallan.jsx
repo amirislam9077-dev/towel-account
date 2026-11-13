@@ -167,16 +167,16 @@ export default function YarnChallan() {
       const body = { ...ch, [isIssue ? 'exporterPoId' : 'loomPoId']: '', lines: ch.lines.filter((l) => num(l.bags) > 0) };
       if (isIssue) body.forExporterPoId = po.exporterPoId || ''; // the Exporter PO this loom yarn belongs to
       const saved = id ? await api.update(COLL, id, body) : await api.create(COLL, body);
-      const all = await loadChallans();
+      await loadChallans();
       showToast({
         title: id ? 'Updated successfully' : 'Saved successfully',
         text: `Yarn ${isIssue ? 'issue' : 'receive'} challan ${saved.no}: ${fmt(thisBags)} Bags has been ${id ? 'updated' : 'saved'}.`,
       });
       if (andPrint) return nav(`${BASE}/${saved.id}/print`);
       if (id) return nav(BASE);
-      // same PO stays selected for the next challan, with the new balance
-      setCh({ ...blank(ch.type), no: await api.nextNo(COLL), [T.poField]: po.id, lines: linesFor(po, ch.type, all),
-        vehicleNo: ch.vehicleNo, driverPhone: ch.driverPhone, godown: ch.godown });
+      // fresh, empty form for the next challan (PO not selected); ?epo= / ?lpo= taken off the address
+      setCh({ ...blank(ch.type), no: await api.nextNo(COLL) });
+      if (search.get('epo') || search.get('lpo')) nav(BASE, { replace: true });
       window.scrollTo({ top: 0 });
     } catch (err) {
       if (/balance/i.test(err.message)) setPopup({ title: 'More than the balance', text: err.message });
