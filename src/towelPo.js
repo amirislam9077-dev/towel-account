@@ -163,8 +163,8 @@ export const blankTowelPo = () => ({
   refNo: '', // exporter's PO / ETL Ref No
   revDate: localToday(), // revised order date
   deliveryDate: localToday(),
-  gstType: 'without',
-  gstPct: '0',
+  gstType: 'with', // default: With GST 18 %
+  gstPct: '18',
   status: 'open',
   remarks: '',
   qualities: [emptyQuality()],

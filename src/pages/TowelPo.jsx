@@ -236,7 +236,7 @@ export default function TowelPo() {
                 <small>Ref</small> {[po.no, partyName[po.exporterId]?.split(" ")[0], po.refNo].filter(Boolean).join(' | ') || '—'}
               </span>
             </div>
-            <div className="grid head-grid">
+            <div className="grid head-grid towel-head">
               <label>
                 Towel PO No *
                 <input value={po.no} disabled />

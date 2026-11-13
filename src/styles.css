@@ -968,3 +968,13 @@ table.towel-items tfoot td, table.yarn-req tfoot td { font-weight: 700; backgrou
 .login-card { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
 .login-card h2 { margin: 0; color: var(--primary); }
 .login-card label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+
+/* Towel PO section 1 on one line: PO No · PO Date · M/S · Ref No · Rev Date · Delivery Date · GST Type · GST % · Status */
+@media (min-width: 1000px) {
+  .po-compact .head-grid.towel-head { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .po-compact .head-grid.towel-head > label.span2 { grid-column: span 2; }
+}
+@media (min-width: 1250px) {
+  .po-compact .head-grid.towel-head { grid-template-columns: 100px 130px minmax(220px, 2fr) minmax(130px, 1fr) 130px 130px 125px 56px 100px; }
+  .po-compact .head-grid.towel-head > label.span2 { grid-column: auto; }
+}
