@@ -6,6 +6,7 @@ import Home from './pages/Home.jsx';
 import TowelPo from './pages/TowelPo.jsx';
 import TowelPoPrint from './pages/TowelPoPrint.jsx';
 import Parties from './pages/Parties.jsx';
+import Reports from './pages/Reports.jsx';
 import ToastHost from './components/Toast.jsx';
 
 const ICON = {
@@ -14,6 +15,7 @@ const ICON = {
   users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   loom: 'M3 5h18M3 19h18M6 5v14M10 5v14M14 5v14M18 5v14',
   factory: 'M2 20h20M4 20V10l5 3V10l5 3V6l6 4v10',
+  chart: 'M3 3v18h18M8 17v-5M13 17V8M18 17v-9',
 };
 // Sub-menu of Al Hasan Towel (more pages will be added: challans, payments, ledger, reports …)
 const SUB = [
@@ -22,6 +24,7 @@ const SUB = [
   { to: '/towel/loom-po', label: 'Loom Towel PO', icon: 'loom', group: 1 },
   { to: '/towel/exporters', label: 'Exporters', icon: 'users', group: 2 },
   { to: '/towel/looms', label: 'Looms', icon: 'factory', group: 2 },
+  { to: '/towel/reports', label: 'Reports', icon: 'chart', group: 3 },
 ];
 const SubIcon = ({ name }) => (
   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -82,6 +85,8 @@ export default function App() {
           <Route path="/towel/loom-po/:id/print" element={<TowelPoPrint key="ltpo" kind="loom" />} />
           <Route path="/towel/exporters" element={<Parties key="exp" type="exporter" />} />
           <Route path="/towel/looms" element={<Parties key="loom" type="loom" />} />
+          <Route path="/towel/reports" element={<Navigate to="/towel/reports/epo-register" replace />} />
+          <Route path="/towel/reports/:type" element={<Reports />} />
           <Route path="*" element={<Navigate to="/towel" replace />} />
         </Routes>
       </main>

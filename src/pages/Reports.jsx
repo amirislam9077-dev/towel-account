@@ -1,0 +1,452 @@
+// Al Hasan Towel — Reports (PO reports + yarn reports), like Al Hasan Conversion's reports.
+// Every report works on the Exporter Towel POs / Loom Towel POs after the filters (date, party, status),
+// then shows summary chips, a sortable table with totals, Excel (CSV) and Print.
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams, Navigate } from 'react-router-dom';
+import { api } from '../api.js';
+import { fmt, fmtDate, num } from '../util.js';
+import DateInput from '../components/DateInput.jsx';
+import { YARNS, poTotals, qualityCalc, qualityTitle, sizeText, itemLbs, itemAmount, givenToLooms, yarnText, totalShortage } from '../towelPo.js';
+
+// column helpers: T = text, N = number (dec = decimals, total = add in footer)
+const T = (label, get, o = {}) => ({ label, get, ...o });
+const N = (label, get, dec = 0, o = {}) => ({ label, get, num: true, dec, total: true, ...o });
+const sumBy = (rows, get) => rows.reduce((t, r) => t + num(get(r)), 0);
+const pcsOf = (po) => (po.qualities || []).reduce((s, q) => s + (q.items || []).reduce((t, it) => t + num(it.qty), 0), 0);
+const uniq = (a) => [...new Set(a.filter(Boolean))];
+const byNo = (a, b) => String(a.no || '').localeCompare(String(b.no || ''), undefined, { numeric: true });
+
+const STATUS_OPTS = [
+  ['active', 'Open + Closed'],
+  ['open', 'Open'],
+  ['closed', 'Closed'],
+  ['cancelled', 'Cancelled'],
+  ['all', 'All status'],
+];
+
+// ---------- report definitions ----------
+// src: which POs the party / date / status filters apply to ('epo' | 'lpo' | 'basis' = chosen by the Basis select)
+export const REPORTS = {
+  'epo-register': {
+    group: 'PO Reports', title: 'Exporter Towel PO Register', sub: 'All exporter orders: ref, qualities, pcs, Lbs, bags and amount',
+    src: 'epo',
+    rows: ({ epos, name }) => epos.map((p) => {
+      const t = poTotals(p);
+      return {
+        _link: `/towel/po/${p.id}/edit`, no: p.no, date: p.date, party: name(p.exporterId), ref: p.refNo || '',
+        qualities: uniq((p.qualities || []).map(qualityTitle)).join(' ; '),
+        items: uniq((p.qualities || []).flatMap((q) => (q.items || []).map((i) => i.item))).join(', '),
+        delivery: p.deliveryDate, ...t, status: p.status,
+      };
+    }),
+    cols: [
+      T('PO No', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Exporter', (r) => r.party),
+      T('Ref No', (r) => r.ref), T('Quality', (r) => r.qualities, { wrap: true }), T('Items', (r) => r.items, { wrap: true }),
+      N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
+      N('Amount', (r) => r.amount, 2), N('GST', (r) => r.gst, 2), N('Total', (r) => r.total, 2, { chip: 'total' }),
+      T('Delivery', (r) => fmtDate(r.delivery), { sort: (r) => r.delivery }), T('Status', (r) => r.status, { tag: true }),
+    ],
+  },
+
+  'lpo-register': {
+    group: 'PO Reports', title: 'Loom Towel PO Register', sub: 'All weaving orders given to looms, with their Exporter PO',
+    src: 'lpo',
+    rows: ({ lpos, name, epoOf }) => lpos.map((p) => {
+      const t = poTotals(p);
+      const ep = epoOf(p.exporterPoId);
+      return {
+        _link: `/towel/loom-po/${p.id}/edit`, no: p.no, date: p.date, party: name(p.loomId), epo: ep?.no || '', exporter: ep ? name(ep.exporterId) : '',
+        items: uniq((p.qualities || []).flatMap((q) => (q.items || []).map((i) => i.item))).join(', '),
+        ...t, rate: t.lbs ? t.amount / t.lbs : 0, delivery: p.deliveryDate, status: p.status,
+      };
+    }),
+    cols: [
+      T('LPO No', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Loom', (r) => r.party),
+      T('Exporter PO', (r) => r.epo), T('Exporter', (r) => r.exporter), T('Items', (r) => r.items, { wrap: true }),
+      N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
+      N('Avg Rate / Lbs', (r) => r.rate, 2, { total: false }), N('Weaving Amount', (r) => r.amount, 2), N('Total', (r) => r.total, 2, { chip: 'total' }),
+      T('Delivery', (r) => fmtDate(r.delivery), { sort: (r) => r.delivery }), T('Status', (r) => r.status, { tag: true }),
+    ],
+  },
+
+  'epo-loom-balance': {
+    group: 'PO Reports', title: 'Exporter PO vs Loom PO (Balance)', sub: 'Item-wise: pcs ordered by the exporter, given to looms and still to give',
+    src: 'epo',
+    rows: ({ epos, allLpos, name }) => {
+      const given = givenToLooms(allLpos);
+      const out = [];
+      for (const p of epos) {
+        for (const q of p.qualities || []) {
+          for (const it of q.items || []) {
+            const mine = allLpos.filter((l) => l.exporterPoId === p.id && l.status !== 'cancelled'
+              && (l.qualities || []).some((x) => (x.items || []).some((y) => y.srcKey === it.key && num(y.qty))));
+            const g = given[`${p.id}|${it.key}`] || 0;
+            out.push({
+              _link: `/towel/po/${p.id}/edit`, no: p.no, date: p.date, party: name(p.exporterId), quality: qualityTitle(q),
+              item: it.item, size: sizeText(it), pcsWt: num(it.pcsWt), ordered: num(it.qty), given: g, balance: num(it.qty) - g,
+              lpos: mine.map((l) => l.no).join(', '), looms: uniq(mine.map((l) => name(l.loomId))).join(', '),
+            });
+          }
+        }
+      }
+      return out;
+    },
+    rowClass: (r) => (r.balance > 0 ? 'warn-row' : r.balance < 0 ? 'bad-row' : 'good-row'),
+    cols: [
+      T('Exporter PO', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Exporter', (r) => r.party),
+      T('Quality', (r) => r.quality, { wrap: true }), T('Item', (r) => r.item), T('Size', (r) => r.size), N('Pcs Wt (Gm)', (r) => r.pcsWt, 0, { total: false }),
+      N('Ordered', (r) => r.ordered, 0, { chip: '' }), N('Given to Looms', (r) => r.given, 0, { chip: 'net' }), N('Balance', (r) => r.balance, 0, { chip: 'base' }),
+      T('Loom POs', (r) => r.lpos), T('Looms', (r) => r.looms),
+    ],
+  },
+
+  'exporter-wise': {
+    group: 'PO Reports', title: 'Exporter-wise Summary', sub: 'Each exporter: POs, pcs, Lbs, bags, amount and balance with looms',
+    src: 'epo',
+    rows: ({ epos, allLpos, name }) => {
+      const m = {};
+      for (const p of epos) {
+        const t = poTotals(p);
+        const g = (m[p.exporterId] ||= { party: name(p.exporterId), nos: [], pcs: 0, lbs: 0, netBags: 0, amount: 0, total: 0, given: 0 });
+        g.nos.push(p.no); g.pcs += t.pcs; g.lbs += t.lbs; g.netBags += t.netBags; g.amount += t.amount; g.total += t.total;
+        g.given += allLpos.filter((l) => l.exporterPoId === p.id && l.status !== 'cancelled').reduce((s, l) => s + pcsOf(l), 0);
+      }
+      return Object.values(m).map((g) => ({ ...g, count: g.nos.length, balance: g.pcs - g.given }));
+    },
+    cols: [
+      T('Exporter', (r) => r.party, { strong: true }), T('PO No', (r) => r.nos.sort().join(', '), { wrap: true }), N('POs', (r) => r.count),
+      N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Given to Looms', (r) => r.given), N('Balance', (r) => r.balance),
+      N('Lbs', (r) => r.lbs, 2, { chip: '' }), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }), N('Amount (excl. GST)', (r) => r.amount, 2), N('Total', (r) => r.total, 2, { chip: 'total' }),
+    ],
+  },
+
+  'loom-wise': {
+    group: 'PO Reports', title: 'Loom-wise Summary', sub: 'Orders given to each loom: pcs, Lbs, net bags and weaving amount',
+    src: 'lpo',
+    rows: ({ lpos, name, epoOf }) => {
+      const m = {};
+      for (const p of lpos) {
+        const t = poTotals(p);
+        const g = (m[p.loomId] ||= { party: name(p.loomId), nos: [], epos: [], pcs: 0, lbs: 0, netBags: 0, amount: 0, total: 0 });
+        g.nos.push(p.no); g.epos.push(epoOf(p.exporterPoId)?.no);
+        g.pcs += t.pcs; g.lbs += t.lbs; g.netBags += t.netBags; g.amount += t.amount; g.total += t.total;
+      }
+      return Object.values(m).map((g) => ({ ...g, count: g.nos.length, rate: g.lbs ? g.amount / g.lbs : 0 }));
+    },
+    cols: [
+      T('Loom', (r) => r.party, { strong: true }), T('LPO No', (r) => r.nos.sort().join(', '), { wrap: true }), T('Exporter POs', (r) => uniq(r.epos).join(', '), { wrap: true }),
+      N('LPOs', (r) => r.count), N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
+      N('Avg Rate / Lbs', (r) => r.rate, 2, { total: false }), N('Weaving Amount', (r) => r.amount, 2), N('Total', (r) => r.total, 2, { chip: 'total' }),
+    ],
+  },
+
+  'item-wise': {
+    group: 'PO Reports', title: 'Item-wise Summary', sub: 'Hand Towel, Bath Towel …: size, pcs, Lbs, amount, given to looms and balance',
+    src: 'epo',
+    rows: ({ epos, allLpos }) => {
+      const given = givenToLooms(allLpos);
+      const m = {};
+      for (const p of epos) {
+        for (const q of p.qualities || []) {
+          for (const it of q.items || []) {
+            const k = [it.item, sizeText(it), num(it.pcsWt)].join('|');
+            const g = (m[k] ||= { item: it.item || '—', size: sizeText(it), pcsWt: num(it.pcsWt), nos: [], pcs: 0, lbs: 0, amount: 0, given: 0 });
+            g.nos.push(p.no); g.pcs += num(it.qty); g.lbs += itemLbs(it); g.amount += itemAmount(it); g.given += given[`${p.id}|${it.key}`] || 0;
+          }
+        }
+      }
+      return Object.values(m).map((g) => ({ ...g, rate: g.lbs ? g.amount / g.lbs : 0, balance: g.pcs - g.given }));
+    },
+    cols: [
+      T('Item', (r) => r.item, { strong: true }), T('Size', (r) => r.size), N('Pcs Wt (Gm)', (r) => r.pcsWt, 0, { total: false }),
+      T('Exporter POs', (r) => uniq(r.nos).join(', '), { wrap: true }), N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Dozen', (r) => r.pcs / 12, 2),
+      N('Lbs', (r) => r.lbs, 2, { chip: '' }), N('Avg Rate / Lbs', (r) => r.rate, 2, { total: false }), N('Amount', (r) => r.amount, 2, { chip: 'total' }),
+      N('Given to Looms', (r) => r.given), N('Balance', (r) => r.balance, 0, { chip: 'base' }),
+    ],
+  },
+
+  'quality-wise': {
+    group: 'PO Reports', title: 'Quality-wise Summary', sub: 'Each towel quality: construction, pcs, Lbs, shortage, net bags and amount',
+    src: 'epo',
+    rows: ({ epos }) => {
+      const m = {};
+      for (const p of epos) {
+        for (const q of p.qualities || []) {
+          const c = qualityCalc(q);
+          const k = qualityTitle(q) || '—';
+          const g = (m[k] ||= { quality: k, finish: new Set(), nos: [], pcs: 0, lbs: 0, netLbs: 0, netBags: 0, amount: 0 });
+          if (q.finish) g.finish.add(q.finish);
+          g.nos.push(p.no); g.pcs += c.pcs; g.lbs += c.lbs; g.netLbs += c.netLbs; g.netBags += c.netBags; g.amount += c.amount;
+        }
+      }
+      return Object.values(m).map((g) => ({ ...g, shortage: g.lbs ? (g.netLbs / g.lbs - 1) * 100 : 0 }));
+    },
+    cols: [
+      T('Quality', (r) => r.quality, { strong: true, wrap: true }), T('Finish', (r) => [...r.finish].join(' ; '), { wrap: true }),
+      T('Exporter POs', (r) => uniq(r.nos).join(', '), { wrap: true }), N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }),
+      N('Shortage %', (r) => r.shortage, 2, { total: false }), N('Net Lbs', (r) => r.netLbs, 2), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }), N('Amount', (r) => r.amount, 2, { chip: 'total' }),
+    ],
+  },
+
+  'yarn-requirement': {
+    group: 'Yarn Reports', title: 'Yarn Requirement (Count-wise)', sub: 'Count-wise bags needed: Pile, Ground, Weft and Fancy with shortage, and yarn cost',
+    src: 'basis', basis: true,
+    rows: ({ basisPos }) => {
+      const m = {};
+      for (const p of basisPos) {
+        for (const q of p.qualities || []) {
+          for (const y of qualityCalc(q).yarns) {
+            if (!y.lbs) continue;
+            const k = y.text || '—';
+            const g = (m[k] ||= { yarn: k, used: new Set(), nos: [], lbs: 0, bags: 0, cost: 0 });
+            g.used.add(y.name); g.nos.push(p.no); g.lbs += y.lbs; g.bags += y.bags; g.cost += y.cost;
+          }
+        }
+      }
+      return Object.values(m).map((g) => ({ ...g, rate: g.bags ? g.cost / g.bags : 0 }));
+    },
+    cols: [
+      T('Yarn (Blend · Count · Spinning)', (r) => r.yarn, { strong: true }), T('Used as', (r) => YARNS.map(([, n]) => n).filter((n) => r.used.has(n)).join(', ')),
+      T('PO No', (r) => uniq(r.nos).join(', '), { wrap: true }), N('Net Lbs', (r) => r.lbs, 2, { chip: '' }), N('Bags', (r) => r.bags, 2, { chip: 'net' }),
+      N('Avg Rate / Bag', (r) => r.rate, 2, { total: false }), N('Yarn Cost', (r) => r.cost, 2, { chip: 'total' }),
+    ],
+  },
+
+  'yarn-po-wise': {
+    group: 'Yarn Reports', title: 'Yarn Requirement (PO-wise)', sub: 'Each PO and quality: net Lbs and Pile / Ground / Weft / Fancy bags',
+    src: 'basis', basis: true,
+    rows: ({ basisPos, name, basis }) => basisPos.flatMap((p) => (p.qualities || []).map((q) => {
+      const c = qualityCalc(q);
+      const r = {
+        _link: `${basis === 'lpo' ? '/towel/loom-po' : '/towel/po'}/${p.id}/edit`, no: p.no, date: p.date,
+        party: name(basis === 'lpo' ? p.loomId : p.exporterId), quality: qualityTitle(q), pcs: c.pcs, lbs: c.lbs, shortage: totalShortage(q),
+        netLbs: c.netLbs, netBags: c.netBags, cost: c.yarnCost,
+      };
+      for (const y of c.yarns) { r[y.p] = y.bags; r[y.p + 'Text'] = y.text; }
+      return r;
+    })),
+    cols: [
+      T('PO No', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Party', (r) => r.party),
+      T('Quality', (r) => r.quality, { wrap: true }), N('Pcs', (r) => r.pcs), N('Lbs', (r) => r.lbs, 2), N('Shortage %', (r) => r.shortage, 2, { total: false }),
+      N('Net Lbs', (r) => r.netLbs, 2, { chip: '' }),
+      ...YARNS.map(([p, n]) => N(`${n} Bags`, (r) => r[p], 2, { chip: 'base' })),
+      N('Total Bags', (r) => r.netBags, 2, { chip: 'net' }), N('Yarn Cost', (r) => r.cost, 2, { chip: 'total' }),
+    ],
+  },
+
+  margin: {
+    group: 'Accounts', title: 'Margin / Profit', sub: 'Exporter amount − loom weaving amount − yarn cost (amounts without GST)',
+    src: 'epo',
+    rows: ({ epos, allLpos }) => epos.map((p) => {
+      const t = poTotals(p);
+      const mine = allLpos.filter((l) => l.exporterPoId === p.id && l.status !== 'cancelled');
+      const loom = mine.reduce((s, l) => s + poTotals(l).amount, 0);
+      const given = mine.reduce((s, l) => s + pcsOf(l), 0);
+      const margin = t.amount - loom - t.yarnCost;
+      return {
+        _link: `/towel/po/${p.id}/edit`, no: p.no, date: p.date, party: '', exporterId: p.exporterId, pcs: t.pcs, given,
+        exp: t.amount, loom, yarn: t.yarnCost, margin, pct: t.amount ? (margin / t.amount) * 100 : 0, lpos: mine.map((l) => l.no).join(', '),
+      };
+    }),
+    rowClass: (r) => (r.margin < 0 ? 'bad-row' : ''),
+    cols: [
+      T('Exporter PO', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Exporter', (r) => r.party),
+      N('Pcs', (r) => r.pcs), N('Given to Looms', (r) => r.given), T('Loom POs', (r) => r.lpos),
+      N('Exporter Amount', (r) => r.exp, 2, { chip: 'total' }), N('Loom Weaving Amount', (r) => r.loom, 2, { chip: 'base' }),
+      N('Yarn Cost', (r) => r.yarn, 2, { chip: 'gst' }), N('Margin', (r) => r.margin, 2, { chip: 'net' }), N('Margin %', (r) => r.pct, 2, { total: false }),
+    ],
+  },
+};
+export const REPORT_LIST = Object.entries(REPORTS).map(([key, r]) => ({ key, group: r.group, title: r.title, sub: r.sub }));
+
+function csvDownload(name, head, body) {
+  const lines = [head, ...body];
+  const csv = lines.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
+  a.download = `${name}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+}
+
+export default function Reports() {
+  const { type } = useParams();
+  const nav = useNavigate();
+  const R = REPORTS[type];
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [fParty, setFParty] = useState('');
+  const [fStatus, setFStatus] = useState('active');
+  const [basis, setBasis] = useState('epo');
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState({ i: -1, dir: 1 });
+
+  useEffect(() => {
+    Promise.all([api.list('towel-pos'), api.list('loom-towel-pos'), api.list('parties')])
+      .then(([epos, lpos, parties]) => setData({ epos, lpos, parties }))
+      .catch((e) => setErr(e.message));
+  }, []);
+  useEffect(() => { setFParty(''); setSort({ i: -1, dir: 1 }); setQ(''); }, [type]);
+
+  const src = R?.src === 'basis' ? basis : R?.src;
+  const partyType = src === 'lpo' ? 'loom' : 'exporter';
+
+  const view = useMemo(() => {
+    if (!data || !R) return null;
+    const pn = Object.fromEntries(data.parties.map((p) => [p.id, p.name]));
+    const name = (id) => pn[id] || '—';
+    const epoOf = (id) => data.epos.find((e) => e.id === id);
+    const pass = (p, pf) => {
+      if (fStatus === 'active' ? p.status === 'cancelled' : fStatus !== 'all' && p.status !== fStatus) return false;
+      if (from && (p.date || '') < from) return false;
+      if (to && (p.date || '') > to) return false;
+      if (fParty && p[pf] !== fParty) return false;
+      return true;
+    };
+    const epos = src === 'epo' ? data.epos.filter((p) => pass(p, 'exporterId')) : data.epos;
+    const lpos = src === 'lpo' ? data.lpos.filter((p) => pass(p, 'loomId')) : data.lpos;
+    const ctx = { epos, lpos, allLpos: data.lpos, name, epoOf, basis, basisPos: (basis === 'lpo' ? lpos : epos).slice().sort(byNo) };
+    let rows = R.rows(ctx).map((r) => (r.exporterId && !r.party ? { ...r, party: name(r.exporterId) } : r));
+    if (q.trim()) {
+      const s = q.trim().toLowerCase();
+      rows = rows.filter((r) => R.cols.some((c) => String(c.get(r) ?? '').toLowerCase().includes(s)));
+    }
+    const c = R.cols[sort.i];
+    if (c) {
+      const key = c.sort || c.get;
+      rows = rows.slice().sort((a, b) => {
+        const x = key(a), y = key(b);
+        return (c.num ? num(x) - num(y) : String(x ?? '').localeCompare(String(y ?? ''), undefined, { numeric: true })) * sort.dir;
+      });
+    }
+    const parties = data.parties.filter((p) => p.type === partyType).sort((a, b) => a.name.localeCompare(b.name));
+    return { rows, parties };
+  }, [data, R, src, from, to, fParty, fStatus, basis, q, sort, partyType]);
+
+  if (!R) return <Navigate to="/towel/reports/epo-register" replace />;
+
+  const groups = uniq(REPORT_LIST.map((r) => r.group));
+  const rows = view?.rows || [];
+  const cell = (c, r) => {
+    const v = c.get(r);
+    if (c.num) return fmt(v, c.dec);
+    return v ?? '';
+  };
+  const exportExcel = () => csvDownload(type, R.cols.map((c) => c.label), [
+    ...rows.map((r) => R.cols.map((c) => (c.num ? Number(num(c.get(r)).toFixed(c.dec)) : c.get(r)))),
+    R.cols.map((c, i) => (c.num && c.total ? Number(sumBy(rows, c.get).toFixed(c.dec)) : i === 0 ? 'TOTAL' : '')),
+  ]);
+
+  return (
+    <div className="reports">
+      <aside className="rep-nav no-print">
+        {groups.map((g) => (
+          <div key={g} className="rep-group">
+            <div className="rep-group-title">{g}</div>
+            {REPORT_LIST.filter((r) => r.group === g).map((r) => (
+              <button key={r.key} className={r.key === type ? 'active' : ''} onClick={() => nav(`/towel/reports/${r.key}`)}>
+                <strong>{r.title}</strong><small>{r.sub}</small>
+              </button>
+            ))}
+          </div>
+        ))}
+        <div className="rep-group soon">
+          <div className="rep-group-title">Coming later</div>
+          <p>Yarn challans, receive / issue balance, yarn stock, payments and party ledger reports will come with their pages.</p>
+        </div>
+      </aside>
+
+      <section className="rep-main">
+        <div className="page-head">
+          <div>
+            <h2 style={{ marginBottom: 2 }}>{R.title}</h2>
+            <p className="muted" style={{ margin: 0 }}>{R.sub}</p>
+          </div>
+          <div className="row-actions big no-print">
+            <button className="btn-print" onClick={() => window.print()}>Print</button>
+            <button className="btn-excel" onClick={exportExcel} disabled={!rows.length}>Excel</button>
+          </div>
+        </div>
+
+        <div className="toolbar no-print">
+          <input type="search" placeholder="Search in this report…" value={q} onChange={(e) => setQ(e.target.value)} />
+          {R.basis && (
+            <select value={basis} onChange={(e) => { setBasis(e.target.value); setFParty(''); }}>
+              <option value="epo">Basis: Exporter Towel POs</option>
+              <option value="lpo">Basis: Loom Towel POs</option>
+            </select>
+          )}
+          <label>From <DateInput value={from} onChange={setFrom} /></label>
+          <label>To <DateInput value={to} onChange={setTo} /></label>
+          <select value={fParty} onChange={(e) => setFParty(e.target.value)}>
+            <option value="">All {partyType === 'loom' ? 'looms' : 'exporters'}</option>
+            {(view?.parties || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+            {STATUS_OPTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+          {(from || to || fParty || q || fStatus !== 'active') && (
+            <button onClick={() => { setFrom(''); setTo(''); setFParty(''); setQ(''); setFStatus('active'); }}>Clear</button>
+          )}
+        </div>
+
+        {err && <div className="notice err">{err}</div>}
+        {!data && !err && <p className="muted">Loading…</p>}
+
+        {data && (
+          <>
+            <div className="stat-chips">
+              <div className="chip"><small>Rows</small><b>{fmt(rows.length)}</b></div>
+              {R.cols.filter((c) => c.chip != null).map((c) => (
+                <div key={c.label} className={`chip ${c.chip}`}><small>{c.label}</small><b>{fmt(sumBy(rows, c.get), c.dec)}</b></div>
+              ))}
+            </div>
+            <div className="print-only rep-print-head">
+              <b>AL HASAN TOWEL — {R.title.toUpperCase()}</b>
+              <span>{[from && `From ${fmtDate(from)}`, to && `To ${fmtDate(to)}`, fParty && view.parties.find((p) => p.id === fParty)?.name].filter(Boolean).join(' · ')}</span>
+            </div>
+            <div className="table-wrap">
+              <table className="rep-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    {R.cols.map((c, i) => (
+                      <th key={c.label} className={`sortable ${c.num ? 'num' : ''}`} onClick={() => setSort((s) => ({ i, dir: s.i === i ? -s.dir : c.num ? -1 : 1 }))}>
+                        {c.label}{sort.i === i ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {!rows.length && <tr><td colSpan={R.cols.length + 1} className="empty">Nothing to show for these filters.</td></tr>}
+                  {rows.map((r, ri) => (
+                    <tr key={ri} className={`${R.rowClass ? R.rowClass(r) : ''} ${r._link ? 'clickable' : ''}`} onClick={() => r._link && nav(r._link)}
+                      title={r._link ? 'Open' : undefined}>
+                      <td className="muted">{ri + 1}</td>
+                      {R.cols.map((c) => (
+                        <td key={c.label} className={[c.num && 'num', c.strong && 'strong', c.wrap && 'wrap'].filter(Boolean).join(' ')}>
+                          {c.tag ? <span className={`tag ${c.get(r)}`}>{c.get(r)}</span> : cell(c, r)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+                {rows.length > 0 && (
+                  <tfoot>
+                    <tr>
+                      <td></td>
+                      {R.cols.map((c, i) => (
+                        <td key={c.label} className={c.num ? 'num' : ''}>{c.num && c.total ? fmt(sumBy(rows, c.get), c.dec) : i === 0 ? 'TOTAL' : ''}</td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}

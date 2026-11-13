@@ -1087,3 +1087,35 @@ th { background: #f3f4fa; }
 .table-wrap.flat { border: none; border-radius: 0; }
 @media (max-width: 640px) { .hero { padding: 20px; } .page .hero h1 { font-size: 24px; } .page { padding: 14px; } }
 @media print { .subbar { position: static; } }
+
+/* ===== Reports ===== */
+.reports { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 18px; align-items: start; }
+.rep-nav { background: #fff; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; position: sticky; top: 64px; max-height: calc(100vh - 84px); overflow-y: auto; }
+.rep-group-title { padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #fff; background: linear-gradient(90deg, #312e81, #4338ca); }
+.rep-group:nth-child(2) .rep-group-title { background: linear-gradient(90deg, #047857, #10b981); }
+.rep-group:nth-child(3) .rep-group-title { background: linear-gradient(90deg, #b45309, #f59e0b); }
+.rep-group.soon .rep-group-title { background: #eceef6; color: var(--muted); }
+.rep-group.soon p { margin: 0; padding: 10px 14px 14px; font-size: 12px; color: var(--muted); }
+.rep-nav button { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; border: none; border-radius: 0;
+  border-left: 3px solid transparent; border-bottom: 1px solid #eef0f6; padding: 9px 14px; background: #fff; }
+.rep-nav button strong { font-size: 13px; color: var(--text); }
+.rep-nav button small { font-size: 11px; color: var(--muted); }
+.rep-nav button:hover { background: var(--primary-soft); }
+.rep-nav button.active { background: var(--primary-soft); border-left-color: var(--primary); }
+.rep-nav button.active strong { color: var(--primary); }
+.rep-main { min-width: 0; }
+.rep-table th.sortable { cursor: pointer; user-select: none; }
+.rep-table th.sortable:hover { color: var(--primary); }
+.rep-table td.wrap { white-space: normal; min-width: 160px; max-width: 320px; }
+.rep-table tr.clickable { cursor: pointer; }
+.rep-table tr.clickable:hover td { background: var(--primary-soft); }
+.print-only { display: none; }
+.mod.t5 > header { background: linear-gradient(90deg, #0e7490, #06b6d4); }
+.mod.t5 .mod-ic { background: #e0f7fb; color: #0e7490; }
+@media (max-width: 900px) { .reports { grid-template-columns: 1fr; } .rep-nav { position: static; max-height: none; } }
+@media print {
+  .reports { display: block; }
+  .print-only { display: flex; }
+  .rep-print-head { justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+  .rep-table td.wrap { max-width: none; }
+}

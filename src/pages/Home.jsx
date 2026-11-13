@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { fmt, fmtDate } from '../util.js';
 import { poTotals, qualityCalc, epoBalance, YARNS } from '../towelPo.js';
+import { REPORT_LIST } from './Reports.jsx';
 
 // small line icons (24x24 paths)
 const I = {
@@ -142,6 +143,10 @@ export default function Home() {
             ))}
           </div>
         </section>
+        <Module nav={nav} tone="t5" icon={I.chart} title="PO Reports" links={REPORT_LIST.filter((r) => r.group === 'PO Reports')
+          .map((r) => ({ to: `/towel/reports/${r.key}`, icon: I.chart, title: r.title, sub: r.sub }))} />
+        <Module nav={nav} tone="t3" icon={I.yarn} title="Yarn & Margin Reports" links={REPORT_LIST.filter((r) => r.group !== 'PO Reports')
+          .map((r) => ({ to: `/towel/reports/${r.key}`, icon: r.group === 'Accounts' ? I.chart : I.yarn, title: r.title, sub: r.sub }))} />
       </div>
 
       <section className="panel">
