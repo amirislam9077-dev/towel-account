@@ -928,12 +928,12 @@ body.theme-looms .dc-rep .dash-ico, body.theme-looms .dc-ledger .dash-ico { back
 .pct-warn { margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: #fdecea; border: 1px solid #f1b0a8; color: var(--danger); font-weight: 600; font-size: 12.5px; }
 .grid.towel-shortage { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 .towel-items-wrap { overflow-x: auto; }
-table.towel-items { min-width: 640px; }
+table.towel-items { min-width: 1050px; }
 table.towel-items th, table.towel-items td { padding: 4px 6px; vertical-align: middle; }
 table.towel-items .c-sno { width: 42px; text-align: center; }
 table.towel-items .c-item { min-width: 230px; }
 table.towel-items .c-size { width: 150px; }
-table.towel-items .c-n { width: 150px; }
+table.towel-items .c-n { width: 110px; }
 table.towel-items .c-unit { width: 115px; }
 table.towel-items .c-x { width: 40px; text-align: center; }
 table.towel-items .size-row .num-input { flex: 1; min-width: 0; }
