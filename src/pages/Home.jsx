@@ -28,7 +28,7 @@ function Module({ tone, icon, title, links, nav }) {
     <section className={`mod ${tone}`}>
       <header><Icon d={icon} /> {title}</header>
       {links.map((l) => (
-        <button key={l.title} className="mod-link" onClick={() => nav(l.to)}>
+        <button key={l.title} className="mod-link" title={l.sub} onClick={() => nav(l.to)}>
           <span className="mod-ic"><Icon d={l.icon} size={16} /></span>
           <span className="mod-txt"><strong>{l.title}</strong><small>{l.sub}</small></span>
           {l.count != null && <span className="mod-count">{l.count}</span>}
@@ -83,11 +83,12 @@ export default function Home() {
           <div className="hero-kicker">Al Hasan Textiles</div>
           <h1>Al Hasan Towel</h1>
           <p>Exporter towel orders, loom weaving orders and Pile / Ground / Weft / Fancy yarn in one place</p>
+        </div>
+        <div className="hero-right">
           <div className="hero-actions">
             <button className="hero-btn solid" onClick={() => nav('/towel/po')}><Icon d={I.plus} size={16} /> New Exporter Towel PO</button>
             <button className="hero-btn" onClick={() => nav('/towel/loom-po')}><Icon d={I.plus} size={16} /> New Loom Towel PO</button>
           </div>
-        </div>
         <div className="flow">
           <button onClick={() => nav('/towel/po')}>Exporter Towel PO</button>
           <span>→</span>
@@ -96,6 +97,7 @@ export default function Home() {
           <span className="flow-step">Yarn Requirement</span>
           <span>→</span>
           <span className="flow-step end">Weaving</span>
+        </div>
         </div>
       </div>
 
@@ -143,10 +145,8 @@ export default function Home() {
             ))}
           </div>
         </section>
-        <Module nav={nav} tone="t5" icon={I.chart} title="PO Reports" links={REPORT_LIST.filter((r) => r.group === 'PO Reports')
-          .map((r) => ({ to: `/towel/reports/${r.key}`, icon: I.chart, title: r.title, sub: r.sub }))} />
-        <Module nav={nav} tone="t3" icon={I.yarn} title="Yarn & Margin Reports" links={REPORT_LIST.filter((r) => r.group !== 'PO Reports')
-          .map((r) => ({ to: `/towel/reports/${r.key}`, icon: r.group === 'Accounts' ? I.chart : I.yarn, title: r.title, sub: r.sub }))} />
+        <Module nav={nav} tone="t5 span2" icon={I.chart} title="Reports" links={REPORT_LIST
+          .map((r) => ({ to: `/towel/reports/${r.key}`, icon: r.group === 'Yarn Reports' ? I.yarn : I.chart, title: r.title, sub: r.sub }))} />
       </div>
 
       <section className="panel">

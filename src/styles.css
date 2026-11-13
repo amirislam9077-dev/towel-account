@@ -1119,3 +1119,47 @@ th { background: #f3f4fa; }
   .rep-print-head { justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
   .rep-table td.wrap { max-width: none; }
 }
+
+/* ===== Dashboard: compact, fits one screen ===== */
+.topbar { padding: 8px 24px; }
+.subbar { padding: 6px 24px; }
+.page:has(.dash) { padding-top: 14px; padding-bottom: 14px; }
+.dash { gap: 12px; }
+.hero { padding: 14px 24px; border-radius: 12px; align-items: center; }
+.hero-kicker { font-size: 10px; letter-spacing: 1.6px; }
+.page .hero h1 { font-size: 22px; margin: 0 0 2px; }
+.hero p { font-size: 13px; }
+.hero-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; position: relative; z-index: 1; }
+.hero-actions { margin-top: 0; gap: 8px; }
+.hero-btn { padding: 6px 12px; font-size: 13px; border-radius: 8px; }
+.flow { gap: 5px; font-size: 12px; }
+.flow button, .flow .flow-step { padding: 3px 10px; font-size: 12px; }
+.kpis { gap: 10px; }
+.kpi { padding: 7px 12px; gap: 1px; border-radius: 10px; }
+.kpi small { font-size: 11px; }
+.kpi b { font-size: 18px; }
+.mods { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.mod { border-radius: 12px; }
+.mod > header { padding: 8px 12px; font-size: 13px; }
+.mod-link { padding: 6px 12px; gap: 9px; }
+.mod-ic { width: 24px; height: 24px; border-radius: 7px; }
+.mod-ic svg { width: 14px; height: 14px; }
+.mod-txt strong { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash .mod-txt small { display: none; }
+.prog-box { padding: 12px; gap: 8px; }
+.prog-head b { font-size: 18px; }
+.yarn-list { padding: 10px 12px; gap: 8px; }
+.yarn-row { grid-template-columns: 9px 52px 1fr auto; gap: 6px; }
+.yarn-row small { display: none; }
+.yarn-row b { min-width: 44px; font-size: 13px; }
+.panel > header { padding: 8px 14px; }
+.panel td, .panel th { padding: 5px 9px; }
+@media (max-width: 1250px) { .mods { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .mods { grid-template-columns: 1fr; } .hero-right { align-items: flex-start; } }
+.mod.span2 { grid-column: span 2; }
+.mod.span2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-width: 0; }
+.mod-link { min-width: 0; }
+.mod.span2 > header { grid-column: 1 / -1; }
+.mod.span2 .mod-link:nth-of-type(2) { border-top: none; }
+.mod.span2 .mod-link:nth-of-type(odd) { border-right: 1px solid #eef0f6; }
+@media (max-width: 700px) { .mod.span2 { grid-column: auto; grid-template-columns: 1fr; } }
