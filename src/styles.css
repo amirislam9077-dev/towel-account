@@ -962,3 +962,9 @@ table.towel-items tfoot td, table.yarn-req tfoot td { font-weight: 700; backgrou
 .towel-print .tp-qtitle { text-align: center; font-weight: 700; font-size: 13px; padding: 5px; border: 2px solid #333; border-bottom: none; background: #eee; }
 .towel-print table.tp-yarn { margin-top: -2px; }
 .print-doc .sign.four div { width: 150px; }
+
+/* Login (online app) */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--bg); }
+.login-card { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+.login-card h2 { margin: 0; color: var(--primary); }
+.login-card label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }

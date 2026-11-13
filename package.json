@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"node --watch server/index.js\" \"vite\"",
     "build": "vite build",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "import-data": "node server/import-data.js"
   },
   "dependencies": {
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
+    "mysql2": "^3.24.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"

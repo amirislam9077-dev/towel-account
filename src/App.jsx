@@ -1,5 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { api, setToken, LOGOUT_EVENT } from './api.js';
+import Login from './pages/Login.jsx';
 import Home from './pages/Home.jsx';
 import TowelPo from './pages/TowelPo.jsx';
 import TowelPoPrint from './pages/TowelPoPrint.jsx';
@@ -27,7 +29,19 @@ const isActive = (path, item) => (item.exact ? path === item.to : path === item.
 export default function App() {
   const { pathname } = useLocation();
   const nav = useNavigate();
-  useEffect(() => { document.title = 'Al Hasan Towel'; }, []);
+  // 'checking' | 'in' | 'out' — the online app asks for a password
+  const [auth, setAuth] = useState('checking');
+  const [locked, setLocked] = useState(false); // true when the server has a password (show Logout)
+  useEffect(() => {
+    document.title = 'Al Hasan Towel';
+    api.me().then((r) => { setLocked(!!r.locked); setAuth('in'); }).catch(() => setAuth('out'));
+    const out = () => { setLocked(true); setAuth('out'); };
+    window.addEventListener(LOGOUT_EVENT, out);
+    return () => window.removeEventListener(LOGOUT_EVENT, out);
+  }, []);
+
+  if (auth === 'checking') return <p className="muted" style={{ padding: 20 }}>Loading…</p>;
+  if (auth === 'out') return <Login onDone={() => { setLocked(true); setAuth('in'); }} />;
 
   return (
     <>
@@ -35,6 +49,7 @@ export default function App() {
         <div className="brand" onClick={() => nav('/towel')}>Al Hasan Towel</div>
         <nav>
           <button className="active" onClick={() => nav('/towel')}>Al Hasan Towel</button>
+          {locked && <button onClick={() => { setToken(''); setAuth('out'); }}>Logout</button>}
         </nav>
       </header>
       <nav className="subbar">
