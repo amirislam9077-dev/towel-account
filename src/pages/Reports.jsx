@@ -76,14 +76,20 @@ export const REPORTS = {
       const ep = epoOf(p.exporterPoId);
       return {
         _link: `/towel/loom-po/${p.id}/edit`, no: p.no, date: p.date, party: name(p.loomId), epo: ep?.no || '', exporter: ep ? name(ep.exporterId) : '',
-        items: uniq((p.qualities || []).flatMap((q) => (q.items || []).map((i) => i.item))).join(', '),
+        // item with towel size and weight
+        items: uniq((p.qualities || []).flatMap((q) => (q.items || []).map((i) =>
+          [i.item, sizeText(i), num(i.pcsWt) ? `· ${fmt(i.pcsWt)} Gm` : ''].filter(Boolean).join(' ')))).join(', '),
         ...t, rate: t.lbs ? t.amount / t.lbs : 0, delivery: p.deliveryDate, status: p.status,
+        // bags of each yarn: Pile / Ground / Weft (Bobbin) / Fancy
+        ...Object.fromEntries(YARNS.map(([y]) => [y + 'Bags', (p.qualities || []).reduce((s2, q) => s2 + qualityCalc(q).yarns.find((x) => x.p === y).bags, 0)])),
       };
     }),
     cols: [
       T('LPO No', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Loom', (r) => r.party),
-      T('Exporter PO', (r) => r.epo), T('Exporter', (r) => r.exporter), T('Items', (r) => r.items, { wrap: true }),
-      N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
+      T('Exporter PO', (r) => r.epo), T('Exporter', (r) => r.exporter.trim().split(/\s+/)[0]), T('Items (Size · Weight)', (r) => r.items, { wrap: true }),
+      N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }),
+      ...YARNS.map(([y, n]) => N(`${y === 'weft' ? 'Bobbin' : n} Bags`, (r) => r[y + 'Bags'], 2, { chip: 'yarn-' + y })),
+      N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
     ],
   },
 
