@@ -20,7 +20,7 @@ if (!fs.existsSync(FILE)) {
 }
 const data = JSON.parse(fs.readFileSync(FILE, 'utf8'));
 const s = await getStore();
-for (const c of ['parties', 'lookups', 'towel-pos', 'loom-towel-pos']) {
+for (const c of ['parties', 'lookups', 'towel-pos', 'loom-towel-pos', 'yarn-challans']) {
   for (const row of data[c] || []) await s.put(c, row);
   console.log(`${c}: ${(data[c] || []).length}`);
 }

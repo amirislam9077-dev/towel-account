@@ -15,6 +15,7 @@ const I = {
   chart: 'M3 3v18h18M7 15l4-4 3 3 5-6',
   yarn: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM5 8c4 0 10 2 14 8M4 13c4-1 9 0 13 5M8 4c1 5 5 11 11 13',
   arrow: 'M5 12h14M13 6l6 6-6 6',
+  truck: 'M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
   print: 'M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z',
 };
 const Icon = ({ d, size = 18 }) => (
@@ -40,10 +41,10 @@ function Module({ tone, icon, title, links, nav }) {
 
 export default function Home() {
   const nav = useNavigate();
-  const [d, setD] = useState({ epos: [], lpos: [], parties: [], loaded: false });
+  const [d, setD] = useState({ epos: [], lpos: [], parties: [], ycs: [], loaded: false });
   useEffect(() => {
-    Promise.all([api.list('towel-pos'), api.list('loom-towel-pos'), api.list('parties')])
-      .then(([epos, lpos, parties]) => setD({ epos, lpos, parties, loaded: true }))
+    Promise.all([api.list('towel-pos'), api.list('loom-towel-pos'), api.list('parties'), api.list('yarn-challans')])
+      .then(([epos, lpos, parties, ycs]) => setD({ epos, lpos, parties, ycs, loaded: true }))
       .catch(() => setD((x) => ({ ...x, loaded: true })));
   }, []);
 
@@ -94,7 +95,7 @@ export default function Home() {
           <span>→</span>
           <button onClick={() => nav('/towel/loom-po')}>Loom Towel PO</button>
           <span>→</span>
-          <span className="flow-step">Yarn Requirement</span>
+          <button onClick={() => nav('/towel/yarn-challan')}>Yarn Receive / Issue</button>
           <span>→</span>
           <span className="flow-step end">Weaving</span>
         </div>
@@ -113,9 +114,10 @@ export default function Home() {
       </div>
 
       <div className="mods">
-        <Module nav={nav} tone="t1" icon={I.file} title="Purchase Orders" links={[
+        <Module nav={nav} tone="t1" icon={I.file} title="Orders & Challans" links={[
           { to: '/towel/po', icon: I.file, title: 'Exporter Towel PO', sub: 'Order from exporter: quality, yarn, items, Lbs', count: d.epos.length },
           { to: '/towel/loom-po', icon: I.loom, title: 'Loom Towel PO', sub: 'Weaving order to a loom against an Exporter PO', count: d.lpos.length },
+          { to: '/towel/yarn-challan', icon: I.truck, title: 'Yarn Receive / Issue', sub: 'Yarn from exporter, bags to looms', count: d.ycs.length },
         ]} />
         <Module nav={nav} tone="t2" icon={I.users} title="Parties" links={[
           { to: '/towel/exporters', icon: I.users, title: 'Exporters', sub: 'Parties who give towel orders', count: s.exporters },

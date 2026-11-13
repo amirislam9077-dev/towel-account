@@ -213,3 +213,46 @@ export function copyFromExporterPo(ep, loomPos, exceptId) {
     })),
   };
 }
+
+// ---------- Yarn Receive / Issue challans ----------
+// receive: bags received FROM the exporter against an Exporter Towel PO
+// issue:   bags issued TO a loom against a Loom Towel PO
+// Every quality of a PO needs Pile / Ground / Weft / Fancy yarn; each of these is one "slot"
+// (quality key + yarn) and is received / issued and balanced separately.
+export const CHALLAN_TYPES = {
+  receive: { label: 'Receive (from Exporter)', poLabel: 'Exporter Towel PO', poField: 'exporterPoId', coll: 'towel-pos', partyField: 'exporterId', verb: 'Receive', past: 'received' },
+  issue: { label: 'Issue (to Loom)', poLabel: 'Loom Towel PO', poField: 'loomPoId', coll: 'loom-towel-pos', partyField: 'loomId', verb: 'Issue', past: 'issued' },
+};
+export const challanType = (c) => (c?.type === 'issue' ? 'issue' : 'receive');
+// whole bags: < .5 down, ≥ .5 up; a small need is still at least 1 bag
+export const wholeBags = (b) => (b > 0 ? Math.max(1, Math.round(b)) : 0);
+export const slotKey = (qKey, y) => `${qKey}|${y}`;
+export const yarnName = (y) => (YARNS.find(([p]) => p === y) || [y, y])[1];
+
+// yarn slots of a PO with the bags needed
+export function yarnSlots(po) {
+  return (po?.qualities || []).flatMap((q, qi) =>
+    qualityCalc(q).yarns.filter((y) => y.bags > 0).map((y) => ({
+      key: slotKey(q.key, y.p), qKey: q.key, qi, quality: qualityTitle(q), y: y.p, name: y.name,
+      text: y.text, pct: y.pct, exact: y.bags, need: wholeBags(y.bags),
+    })));
+}
+// bags already received / issued per slot for one PO (cancelled challans and `exceptId` skipped)
+export function challanDone(challans, type, poId, exceptId) {
+  const f = CHALLAN_TYPES[type].poField;
+  const m = {};
+  for (const c of challans || []) {
+    if (c.id === exceptId || challanType(c) !== type || c[f] !== poId) continue;
+    for (const l of c.lines || []) m[slotKey(l.qKey, l.y)] = (m[slotKey(l.qKey, l.y)] || 0) + num(l.bags);
+  }
+  return m;
+}
+// a PO's yarn: every slot with need / done / balance, and the PO totals
+export function yarnBalance(po, type, challans, exceptId) {
+  const done = challanDone(challans, type, po?.id, exceptId);
+  const slots = yarnSlots(po).map((s) => ({ ...s, done: done[s.key] || 0, balance: s.need - (done[s.key] || 0) }));
+  const need = slots.reduce((t, s) => t + s.need, 0);
+  const d = slots.reduce((t, s) => t + s.done, 0);
+  return { slots, need, done: d, balance: need - d };
+}
+export const challanBags = (c) => (c.lines || []).reduce((t, l) => t + num(l.bags), 0);

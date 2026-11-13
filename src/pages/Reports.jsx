@@ -6,7 +6,8 @@ import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { fmt, fmtDate, num } from '../util.js';
 import DateInput from '../components/DateInput.jsx';
-import { YARNS, poTotals, qualityCalc, qualityTitle, sizeText, itemLbs, itemAmount, givenToLooms, yarnText, totalShortage } from '../towelPo.js';
+import { YARNS, poTotals, qualityCalc, qualityTitle, sizeText, itemLbs, itemAmount, givenToLooms, totalShortage,
+  yarnBalance, challanType, yarnName } from '../towelPo.js';
 
 // column helpers: T = text, N = number (dec = decimals, total = add in footer)
 const T = (label, get, o = {}) => ({ label, get, ...o });
@@ -234,6 +235,84 @@ export const REPORTS = {
     ],
   },
 
+  'yc-register': {
+    group: 'Yarn Reports', title: 'Yarn Challan Register', sub: 'Every yarn receive / issue challan line: which yarn, for Pile / Ground / Weft / Fancy, bags',
+    src: 'yc',
+    rows: ({ ycs, name, epoOf, lpoOf }) => ycs.flatMap((c) => {
+      const t = challanType(c);
+      const po = t === 'issue' ? lpoOf(c.loomPoId) : epoOf(c.exporterPoId);
+      const ep = t === 'issue' ? epoOf(po?.exporterPoId) : po;
+      return (c.lines || []).map((l) => ({
+        _link: `/towel/yarn-challan/${c.id}/edit`, no: c.no, date: c.date, type: t === 'issue' ? 'Issue' : 'Receive',
+        po: po?.no || '', party: name(t === 'issue' ? po?.loomId : po?.exporterId), epo: ep?.no || '',
+        quality: l.quality, for: yarnName(l.y), yarn: l.yarnText, brand: l.brand || '', bags: num(l.bags),
+        recv: t === 'receive' ? num(l.bags) : 0, iss: t === 'issue' ? num(l.bags) : 0,
+        vehicle: c.vehicleNo || '', godown: c.godown || '', paper: c.challanNo || '',
+      }));
+    }),
+    cols: [
+      T('Ref No', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Type', (r) => r.type),
+      T('PO', (r) => r.po), T('Party', (r) => r.party), T('Exporter PO', (r) => r.epo), T('Quality', (r) => r.quality, { wrap: true }),
+      T('For', (r) => r.for), T('Yarn', (r) => r.yarn), T('Brand', (r) => r.brand),
+      N('Received Bags', (r) => r.recv, 0, { chip: 'net' }), N('Issued Bags', (r) => r.iss, 0, { chip: 'base' }),
+      T('Vehicle', (r) => r.vehicle), T('Godown', (r) => r.godown), T('Paper No', (r) => r.paper),
+    ],
+  },
+
+  'receive-balance': {
+    group: 'Yarn Reports', title: 'Receive Balance (Exporter)', sub: 'Each Exporter PO yarn: bags needed, received from the exporter and balance',
+    src: 'epo',
+    rows: ({ epos, allYcs, name }) => epos.flatMap((p) => yarnBalance(p, 'receive', allYcs).slots.map((s) => ({
+      _link: `/towel/yarn-challan?epo=${p.id}`, no: p.no, date: p.date, party: name(p.exporterId),
+      quality: `Q${s.qi + 1} ${s.quality}`, for: s.name, yarn: s.text, need: s.need, done: s.done, balance: s.balance,
+    }))),
+    rowClass: (r) => (r.balance > 0 ? 'warn-row' : r.balance < 0 ? 'bad-row' : 'good-row'),
+    cols: [
+      T('Exporter PO', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Exporter', (r) => r.party),
+      T('Quality', (r) => r.quality, { wrap: true }), T('For', (r) => r.for), T('Yarn', (r) => r.yarn),
+      N('Bags Needed', (r) => r.need, 0, { chip: '' }), N('Received', (r) => r.done, 0, { chip: 'net' }), N('Balance', (r) => r.balance, 0, { chip: 'base' }),
+    ],
+  },
+
+  'issue-balance': {
+    group: 'Yarn Reports', title: 'Issue Balance (Loom)', sub: 'Each Loom PO yarn: bags required, issued to the loom and balance',
+    src: 'lpo',
+    rows: ({ lpos, allYcs, name, epoOf }) => lpos.flatMap((p) => yarnBalance(p, 'issue', allYcs).slots.map((s) => ({
+      _link: `/towel/yarn-challan?lpo=${p.id}`, no: p.no, date: p.date, party: name(p.loomId), epo: epoOf(p.exporterPoId)?.no || '',
+      quality: `Q${s.qi + 1} ${s.quality}`, for: s.name, yarn: s.text, need: s.need, done: s.done, balance: s.balance,
+    }))),
+    rowClass: (r) => (r.balance > 0 ? 'warn-row' : r.balance < 0 ? 'bad-row' : 'good-row'),
+    cols: [
+      T('Loom PO', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Loom', (r) => r.party),
+      T('Exporter PO', (r) => r.epo), T('Quality', (r) => r.quality, { wrap: true }), T('For', (r) => r.for), T('Yarn', (r) => r.yarn),
+      N('Bags Required', (r) => r.need, 0, { chip: '' }), N('Issued', (r) => r.done, 0, { chip: 'net' }), N('Balance', (r) => r.balance, 0, { chip: 'base' }),
+    ],
+  },
+
+  'yarn-stock': {
+    group: 'Yarn Reports', title: 'Yarn Stock (Godown / Count-wise)', sub: 'Bags received − bags issued = bags in the godown, for each yarn',
+    src: 'yc',
+    rows: ({ ycs }) => {
+      const m = {};
+      for (const c of ycs) {
+        const t = challanType(c);
+        for (const l of c.lines || []) {
+          const k = `${c.godown || '—'}|${l.yarnText || '—'}`;
+          const g = (m[k] ||= { godown: c.godown || '—', yarn: l.yarnText || '—', used: new Set(), recv: 0, iss: 0 });
+          g.used.add(yarnName(l.y));
+          if (t === 'issue') g.iss += num(l.bags); else g.recv += num(l.bags);
+        }
+      }
+      return Object.values(m).map((g) => ({ ...g, stock: g.recv - g.iss }));
+    },
+    rowClass: (r) => (r.stock < 0 ? 'bad-row' : ''),
+    cols: [
+      T('Godown', (r) => r.godown, { strong: true }), T('Yarn (Blend · Count · Spinning)', (r) => r.yarn, { strong: true }),
+      T('Used as', (r) => YARNS.map(([, n]) => n).filter((n) => r.used.has(n)).join(', ')),
+      N('Received Bags', (r) => r.recv, 0, { chip: 'net' }), N('Issued Bags', (r) => r.iss, 0, { chip: 'base' }), N('Stock Bags', (r) => r.stock, 0, { chip: 'total' }),
+    ],
+  },
+
   margin: {
     group: 'Accounts', title: 'Margin / Profit', sub: 'Exporter amount − loom weaving amount − yarn cost (amounts without GST)',
     src: 'epo',
@@ -283,8 +362,8 @@ export default function Reports() {
   const [sort, setSort] = useState({ i: -1, dir: 1 });
 
   useEffect(() => {
-    Promise.all([api.list('towel-pos'), api.list('loom-towel-pos'), api.list('parties')])
-      .then(([epos, lpos, parties]) => setData({ epos, lpos, parties }))
+    Promise.all([api.list('towel-pos'), api.list('loom-towel-pos'), api.list('parties'), api.list('yarn-challans')])
+      .then(([epos, lpos, parties, ycs]) => setData({ epos, lpos, parties, ycs }))
       .catch((e) => setErr(e.message));
   }, []);
   useEffect(() => { setFParty(''); setSort({ i: -1, dir: 1 }); setQ(''); }, [type]);
@@ -304,9 +383,13 @@ export default function Reports() {
       if (fParty && p[pf] !== fParty) return false;
       return true;
     };
+    const lpoOf = (id) => data.lpos.find((e) => e.id === id);
     const epos = src === 'epo' ? data.epos.filter((p) => pass(p, 'exporterId')) : data.epos;
     const lpos = src === 'lpo' ? data.lpos.filter((p) => pass(p, 'loomId')) : data.lpos;
-    const ctx = { epos, lpos, allLpos: data.lpos, name, epoOf, basis, basisPos: (basis === 'lpo' ? lpos : epos).slice().sort(byNo) };
+    // yarn challans: date filter, and party = exporter (receive) or loom (issue) of its PO
+    const ycParty = (c) => (challanType(c) === 'issue' ? lpoOf(c.loomPoId)?.loomId : epoOf(c.exporterPoId)?.exporterId);
+    const ycs = (data.ycs || []).filter((c) => (!from || (c.date || '') >= from) && (!to || (c.date || '') <= to) && (!fParty || ycParty(c) === fParty));
+    const ctx = { epos, lpos, allLpos: data.lpos, ycs, allYcs: data.ycs || [], name, epoOf, lpoOf, basis, basisPos: (basis === 'lpo' ? lpos : epos).slice().sort(byNo) };
     let rows = R.rows(ctx).map((r) => (r.exporterId && !r.party ? { ...r, party: name(r.exporterId) } : r));
     if (q.trim()) {
       const s = q.trim().toLowerCase();
@@ -320,7 +403,7 @@ export default function Reports() {
         return (c.num ? num(x) - num(y) : String(x ?? '').localeCompare(String(y ?? ''), undefined, { numeric: true })) * sort.dir;
       });
     }
-    const parties = data.parties.filter((p) => p.type === partyType).sort((a, b) => a.name.localeCompare(b.name));
+    const parties = data.parties.filter((p) => src === 'yc' || p.type === partyType).sort((a, b) => a.name.localeCompare(b.name));
     return { rows, parties };
   }, [data, R, src, from, to, fParty, fStatus, basis, q, sort, partyType]);
 
@@ -353,7 +436,7 @@ export default function Reports() {
         ))}
         <div className="rep-group soon">
           <div className="rep-group-title">Coming later</div>
-          <p>Yarn challans, receive / issue balance, yarn stock, payments and party ledger reports will come with their pages.</p>
+          <p>Payments and party ledger reports will come with their pages.</p>
         </div>
       </aside>
 
@@ -380,12 +463,14 @@ export default function Reports() {
           <label>From <DateInput value={from} onChange={setFrom} /></label>
           <label>To <DateInput value={to} onChange={setTo} /></label>
           <select value={fParty} onChange={(e) => setFParty(e.target.value)}>
-            <option value="">All {partyType === 'loom' ? 'looms' : 'exporters'}</option>
+            <option value="">{src === 'yc' ? 'All parties' : `All ${partyType === 'loom' ? 'looms' : 'exporters'}`}</option>
             {(view?.parties || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
-            {STATUS_OPTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
+          {src !== 'yc' && (
+            <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+              {STATUS_OPTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          )}
           {(from || to || fParty || q || fStatus !== 'active') && (
             <button onClick={() => { setFrom(''); setTo(''); setFParty(''); setQ(''); setFStatus('active'); }}>Clear</button>
           )}

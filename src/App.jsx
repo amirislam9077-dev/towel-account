@@ -7,6 +7,8 @@ import TowelPo from './pages/TowelPo.jsx';
 import TowelPoPrint from './pages/TowelPoPrint.jsx';
 import Parties from './pages/Parties.jsx';
 import Reports from './pages/Reports.jsx';
+import YarnChallan from './pages/YarnChallan.jsx';
+import YarnChallanPrint from './pages/YarnChallanPrint.jsx';
 import ToastHost from './components/Toast.jsx';
 
 const ICON = {
@@ -16,15 +18,17 @@ const ICON = {
   loom: 'M3 5h18M3 19h18M6 5v14M10 5v14M14 5v14M18 5v14',
   factory: 'M2 20h20M4 20V10l5 3V10l5 3V6l6 4v10',
   chart: 'M3 3v18h18M8 17v-5M13 17V8M18 17v-9',
+  truck: 'M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
 };
 // Sub-menu of Al Hasan Towel (more pages will be added: challans, payments, ledger, reports …)
 const SUB = [
   { to: '/towel', label: 'Dashboard', icon: 'home', exact: true, group: 0 },
   { to: '/towel/po', label: 'Exporter Towel PO', icon: 'file', group: 1 },
   { to: '/towel/loom-po', label: 'Loom Towel PO', icon: 'loom', group: 1 },
-  { to: '/towel/exporters', label: 'Exporters', icon: 'users', group: 2 },
-  { to: '/towel/looms', label: 'Looms', icon: 'factory', group: 2 },
-  { to: '/towel/reports', label: 'Reports', icon: 'chart', group: 3 },
+  { to: '/towel/yarn-challan', label: 'Yarn Receive / Issue', icon: 'truck', group: 2 },
+  { to: '/towel/exporters', label: 'Exporters', icon: 'users', group: 3 },
+  { to: '/towel/looms', label: 'Looms', icon: 'factory', group: 3 },
+  { to: '/towel/reports', label: 'Reports', icon: 'chart', group: 4 },
 ];
 const SubIcon = ({ name }) => (
   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -85,6 +89,9 @@ export default function App() {
           <Route path="/towel/loom-po/:id/print" element={<TowelPoPrint key="ltpo" kind="loom" />} />
           <Route path="/towel/exporters" element={<Parties key="exp" type="exporter" />} />
           <Route path="/towel/looms" element={<Parties key="loom" type="loom" />} />
+          <Route path="/towel/yarn-challan" element={<YarnChallan key="yc" />} />
+          <Route path="/towel/yarn-challan/:id/edit" element={<YarnChallan key="yc" />} />
+          <Route path="/towel/yarn-challan/:id/print" element={<YarnChallanPrint />} />
           <Route path="/towel/reports" element={<Navigate to="/towel/reports/epo-register" replace />} />
           <Route path="/towel/reports/:type" element={<Reports />} />
           <Route path="*" element={<Navigate to="/towel" replace />} />

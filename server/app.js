@@ -2,6 +2,7 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { getStore } from './store.js';
+import { yarnBalance, CHALLAN_TYPES, challanType, yarnName } from '../src/towelPo.js';
 
 // collection name -> number prefix (null = no auto number)
 const COLLECTIONS = {
@@ -9,6 +10,7 @@ const COLLECTIONS = {
   lookups: null, // dropdown values: { kind, value }
   'towel-pos': 'TPO', // Exporter Towel PO
   'loom-towel-pos': 'LTPO', // Loom Towel PO (against an Exporter Towel PO)
+  'yarn-challans': 'YC', // yarn received from the exporter / issued to a loom
 };
 const PARTY_TYPES = ['exporter', 'loom'];
 
@@ -28,6 +30,10 @@ const SEED_LOOKUPS = {
   pick: Array.from({ length: 25 }, (_, i) => String((i + 1) * 2)),
   fabricWidth: ['20', '24', '30', '36', '54', '63', '72'],
   widthUnit: ['Inches', 'CM'],
+  godown: ['Al Hasan Godown'],
+  vehicleNo: [],
+  driverPhone: [],
+  yarnBrand: [],
 };
 
 const rid = () => Math.random().toString(36).slice(2, 12);
@@ -102,6 +108,23 @@ async function validate(s, c, body, id) {
       }
     }
   }
+  if (c === 'yarn-challans') {
+    const type = challanType(body);
+    const T = CHALLAN_TYPES[type];
+    const po = await s.get(T.coll, body[T.poField]);
+    if (!po) return `Select the ${T.poLabel}`;
+    const lines = (body.lines || []).filter((l) => Number(l.bags) > 0);
+    if (!lines.length) return `Enter ${T.verb} Bags`;
+    if (!String(body.godown || '').trim()) return 'Godown is required';
+    // each yarn: not more bags than its balance on the PO (other challans taken off)
+    const { slots } = yarnBalance(po, type, await s.all(c), id);
+    for (const l of lines) {
+      const sl = slots.find((x) => x.qKey === l.qKey && x.y === l.y);
+      if (!sl) return `${yarnName(l.y)} ${l.yarnText || ''}: this yarn is not on ${po.no} any more`;
+      if (Number(l.bags) > sl.balance + 1e-6)
+        return `${sl.name} ${sl.text} (Quality ${sl.qi + 1}): only ${Math.max(0, sl.balance)} Bags balance on ${po.no}`;
+    }
+  }
   return null;
 }
 async function canDelete(s, c, id) {
@@ -111,6 +134,8 @@ async function canDelete(s, c, id) {
   }
   if (c === 'towel-pos' && (await s.all('loom-towel-pos')).some((p) => p.exporterPoId === id))
     return 'Loom Towel PO exists against this Exporter Towel PO, delete that first';
+  if ((c === 'towel-pos' || c === 'loom-towel-pos') && (await s.all('yarn-challans')).some((x) => x.exporterPoId === id || x.loomPoId === id))
+    return 'Yarn challan exists against this PO, delete that first';
   return null;
 }
 
