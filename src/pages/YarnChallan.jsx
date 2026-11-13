@@ -381,7 +381,8 @@ export default function YarnChallan({ mode = 'receive' }) {
             <label>Challan Ref No<input value={ch.no} disabled /></label>
             <label>Date *<DateInput value={ch.date} onChange={(v) => setCh({ ...ch, date: v })} required /></label>
             <label>Challan No (paper)<input value={ch.challanNo} onChange={set('challanNo')} /></label>
-            <label className="span2">{isIssue ? 'Loom Delivery Place (yarn delivered at)' : 'Delivery Place (delivered from)'}<LookupSelect value={ch.deliveryPlace || ''} onChange={(v) => setCh({ ...ch, deliveryPlace: v })} {...bind('deliveryPlace', 'delivery place')} /></label>
+            {/* only on issue: where the yarn was delivered at the loom */}
+            {isIssue && <label className="span2">Loom Delivery Place (yarn delivered at)<LookupSelect value={ch.deliveryPlace || ''} onChange={(v) => setCh({ ...ch, deliveryPlace: v })} {...bind('deliveryPlace', 'delivery place')} /></label>}
             <label>Vehicle No<LookupSelect value={ch.vehicleNo || ''} onChange={(v) => setCh({ ...ch, vehicleNo: v })} {...bind('vehicleNo', 'vehicle no')} /></label>
             <label>Driver / Phone<LookupSelect value={ch.driverPhone || ''} onChange={(v) => setCh({ ...ch, driverPhone: v })} {...bind('driverPhone', 'driver / phone')} /></label>
             <label className="span2">{isIssue ? 'Yarn Issued From *' : 'Godown (received into) *'}<LookupSelect value={ch.godown || ''} onChange={(v) => setCh({ ...ch, godown: v })} {...bind('godown', 'godown')} required /></label>
@@ -429,7 +430,7 @@ export default function YarnChallan({ mode = 'receive' }) {
           <thead>
             <tr>
               <th>Ref No</th><th>Date</th><th>Type</th><th>PO</th><th>Party</th><th>Yarn (for · count · bags)</th>
-              <th className="num">Bags</th><th>Delivery Place</th><th>Vehicle</th><th>Driver</th><th>Godown / Issued From</th><th>Paper No</th><th className="no-print"></th>
+              <th className="num">Bags</th>{isIssue && <th>Loom Delivery Place</th>}<th>Vehicle</th><th>Driver</th><th>Godown / Issued From</th><th>Paper No</th><th className="no-print"></th>
             </tr>
           </thead>
           <tbody>
@@ -449,7 +450,7 @@ export default function YarnChallan({ mode = 'receive' }) {
                     ))}
                   </td>
                   <td className="num strong">{fmt(challanBags(c))}</td>
-                  <td>{c.deliveryPlace}</td>
+                  {isIssue && <td>{c.deliveryPlace}</td>}
                   <td>{c.vehicleNo}</td>
                   <td>{c.driverPhone}</td>
                   <td>{c.godown}</td>
