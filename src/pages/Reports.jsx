@@ -76,7 +76,7 @@ export const REPORTS = {
   },
 
   'epo-loom-balance': {
-    group: 'PO Reports', title: 'Exporter PO vs Loom PO (Balance)', sub: 'Item-wise: pcs ordered by the exporter, given to looms and still to give',
+    group: 'PO Reports', title: 'Exporter PO vs Loom PO (Balance)', sub: 'Each Exporter PO with its Loom POs: pcs ordered, given to looms and balance',
     src: 'epo',
     rows: ({ epos, allLpos, name }) => {
       const given = givenToLooms(allLpos);
@@ -98,6 +98,32 @@ export const REPORTS = {
       return out;
     },
     rowClass: (r) => (r.balance > 0 ? 'warn-row' : r.balance < 0 ? 'bad-row' : 'good-row'),
+    // grouped view (like Al Hasan): every Loom PO under its Exporter PO, then given / balance
+    groups: ({ epos, allLpos, name }) => epos.slice().sort(byNo).map((p) => {
+      const given = givenToLooms(allLpos);
+      const items = (p.qualities || []).flatMap((q) => (q.items || []).map((it) => {
+        const g = given[`${p.id}|${it.key}`] || 0;
+        return { label: [it.item, sizeText(it), num(it.pcsWt) ? `${fmt(it.pcsWt)} Gm` : ''].filter(Boolean).join(' · '), ordered: num(it.qty), given: g, balance: num(it.qty) - g };
+      }));
+      const lines = allLpos.filter((l) => l.exporterPoId === p.id && l.status !== 'cancelled')
+        .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || byNo(a, b))
+        .map((l) => {
+          const t = poTotals(l);
+          return {
+            id: l.id, no: l.no, date: l.date, loom: name(l.loomId), status: l.status,
+            items: (l.qualities || []).flatMap((q) => (q.items || []).filter((it) => num(it.qty))
+              .map((it) => `${[it.item, sizeText(it), num(it.pcsWt) ? `${fmt(it.pcsWt)} Gm` : ''].filter(Boolean).join(' · ')}: ${fmt(it.qty)} Pcs`)),
+            pcs: t.pcs, lbs: t.lbs, bags: t.netBags, amount: t.amount, rate: t.lbs ? t.amount / t.lbs : 0,
+          };
+        });
+      const ordered = items.reduce((s, x) => s + x.ordered, 0);
+      const g = lines.reduce((s, x) => s + x.pcs, 0);
+      return {
+        ep: { id: p.id, no: p.no, date: p.date, party: name(p.exporterId), ref: p.refNo || '', ordered, status: p.status },
+        items, lines, given: g, balance: ordered - g,
+        lbs: lines.reduce((s, x) => s + x.lbs, 0), bags: lines.reduce((s, x) => s + x.bags, 0), amount: lines.reduce((s, x) => s + x.amount, 0),
+      };
+    }),
     cols: [
       T('Exporter PO', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Exporter', (r) => r.party),
       T('Quality', (r) => r.quality, { wrap: true }), T('Item', (r) => r.item), T('Size', (r) => r.size), N('Pcs Wt (Gm)', (r) => r.pcsWt, 0, { total: false }),
@@ -352,6 +378,74 @@ function csvDownload(name, head, body) {
   a.click();
 }
 
+// Exporter PO vs Loom PO, grouped: each Exporter PO, its Loom POs, then given / balance (like Al Hasan)
+function GroupView({ groups, nav }) {
+  const tot = groups.reduce((t, g) => ({ ordered: t.ordered + g.ep.ordered, given: t.given + g.given, balance: t.balance + g.balance,
+    lbs: t.lbs + g.lbs, bags: t.bags + g.bags, amount: t.amount + g.amount }), { ordered: 0, given: 0, balance: 0, lbs: 0, bags: 0, amount: 0 });
+  return (
+    <div className="table-wrap">
+      <table className="group-table rep-table">
+        <thead>
+          <tr>
+            <th>Loom PO</th><th>Date</th><th>Loom</th><th>Items (Size · Weight: Pcs)</th>
+            <th className="num">Pcs</th><th className="num">Lbs</th><th className="num">Rate / Lbs</th><th className="num">Weaving Amount</th>
+            <th className="num">Net Bags</th><th>Balance</th>
+          </tr>
+        </thead>
+        {groups.map((g) => (
+          <tbody key={g.ep.id}>
+            <tr className="grp-head">
+              <td colSpan={10}>
+                <b className="clickable-text" onClick={() => nav(`/towel/po/${g.ep.id}/edit`)}>{g.ep.no}</b> · {fmtDate(g.ep.date)} · <b>{g.ep.party}</b>
+                {g.ep.ref && <span className="ref-chip"><small>Ref</small> {g.ep.ref}</span>}
+                {g.ep.ordered > 0 && g.balance <= 0 && <span className="done-chip">✔ Order Completed</span>}
+                <span className="grp-ordered">Ordered <b>{fmt(g.ep.ordered)}</b> Pcs</span>
+              </td>
+            </tr>
+            {g.lines.map((l) => (
+              <tr key={l.id} className="clickable" onClick={() => nav(`/towel/loom-po/${l.id}/edit`)} title="Open Loom PO">
+                <td className="strong">{l.no}</td><td>{fmtDate(l.date)}</td><td>{l.loom}</td>
+                <td className="wrap">{l.items.map((x, i) => <div key={i}>{x}</div>)}</td>
+                <td className="num">{fmt(l.pcs)}</td><td className="num">{fmt(l.lbs, 2)}</td><td className="num">{fmt(l.rate, 2)}</td>
+                <td className="num">{fmt(l.amount, 2)}</td><td className="num">{fmt(l.bags, 2)}</td><td></td>
+              </tr>
+            ))}
+            {!g.lines.length && <tr><td colSpan={10} className="muted">No Loom PO yet against this Exporter PO</td></tr>}
+            {g.items.length > 1 && g.items.map((x, i) => (
+              <tr key={'i' + i} className="ch-line">
+                <td colSpan={4}>↳ {x.label}</td>
+                <td className="num">{fmt(x.given)}</td>
+                <td colSpan={4} className="num">of {fmt(x.ordered)} · balance</td>
+                <td className={x.balance > 0 ? '' : 'good'}><b>{fmt(x.balance)}</b> Pcs</td>
+              </tr>
+            ))}
+            <tr className={`grp-foot ${g.balance > 0 ? 'warn-row' : g.balance < 0 ? 'bad-row' : 'good-row'}`}>
+              <td colSpan={4}>
+                {g.lines.length} Loom PO(s) · Given <b>{fmt(g.given)}</b> of {fmt(g.ep.ordered)} Pcs
+                {g.ep.ordered > 0 && g.balance <= 0 && <b className="done-text"> · ✔ Completed: all pcs given to looms</b>}
+              </td>
+              <td className="num"><b>{fmt(g.given)}</b></td><td className="num"><b>{fmt(g.lbs, 2)}</b></td><td></td>
+              <td className="num"><b>{fmt(g.amount, 2)}</b></td><td className="num"><b>{fmt(g.bags, 2)}</b></td>
+              <td className="grp-bal">{g.balance < 0 ? 'Over ' : ''}<b>{fmt(Math.abs(g.balance))}</b> Pcs</td>
+            </tr>
+          </tbody>
+        ))}
+        {!groups.length && <tbody><tr><td colSpan={10} className="empty">Nothing to show for these filters.</td></tr></tbody>}
+        {groups.length > 0 && (
+          <tfoot>
+            <tr>
+              <td colSpan={4}>TOTAL · Ordered {fmt(tot.ordered)} · Given {fmt(tot.given)}</td>
+              <td className="num">{fmt(tot.given)}</td><td className="num">{fmt(tot.lbs, 2)}</td><td></td>
+              <td className="num">{fmt(tot.amount, 2)}</td><td className="num">{fmt(tot.bags, 2)}</td>
+              <td className="grp-bal tot-bal"><b>{fmt(tot.balance)}</b> Pcs</td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
+  );
+}
+
 export default function Reports() {
   const { type } = useParams();
   const nav = useNavigate();
@@ -365,6 +459,7 @@ export default function Reports() {
   const [basis, setBasis] = useState('epo');
   const [q, setQ] = useState('');
   const [sort, setSort] = useState({ i: -1, dir: 1 });
+  const [flat, setFlat] = useState(false); // grouped reports: show the plain item-wise table instead
 
   useEffect(() => {
     Promise.all([api.list('towel-pos'), api.list('loom-towel-pos'), api.list('parties'), api.list('yarn-challans')])
@@ -409,7 +504,12 @@ export default function Reports() {
       });
     }
     const parties = data.parties.filter((p) => src === 'yc' || p.type === partyType).sort((a, b) => a.name.localeCompare(b.name));
-    return { rows, parties };
+    let grp = R.groups ? R.groups(ctx) : null;
+    if (grp && q.trim()) {
+      const s = q.trim().toLowerCase();
+      grp = grp.filter((g) => JSON.stringify(g).toLowerCase().includes(s));
+    }
+    return { rows, parties, grp };
   }, [data, R, src, from, to, fParty, fStatus, basis, q, sort, partyType]);
 
   if (!R) return <Navigate to="/towel/reports/epo-register" replace />;
@@ -470,6 +570,12 @@ export default function Reports() {
           {(from || to || fParty || q || fStatus !== 'active') && (
             <button onClick={() => { setFrom(''); setTo(''); setFParty(''); setQ(''); setFStatus('active'); }}>Clear</button>
           )}
+          {R.groups && (
+            <div className="seg">
+              <button className={!flat ? 'on' : ''} onClick={() => setFlat(false)}>PO-wise (Loom POs)</button>
+              <button className={flat ? 'on' : ''} onClick={() => setFlat(true)}>Item-wise</button>
+            </div>
+          )}
         </div>
 
         {err && <div className="notice err">{err}</div>}
@@ -487,6 +593,7 @@ export default function Reports() {
               <b>AL HASAN TOWEL — {R.title.toUpperCase()}</b>
               <span>{[from && `From ${fmtDate(from)}`, to && `To ${fmtDate(to)}`, fParty && view.parties.find((p) => p.id === fParty)?.name].filter(Boolean).join(' · ')}</span>
             </div>
+            {view.grp && !flat ? <GroupView groups={view.grp} nav={nav} /> : (
             <div className="table-wrap">
               <table className="rep-table">
                 <thead>
@@ -525,6 +632,7 @@ export default function Reports() {
                 )}
               </table>
             </div>
+            )}
           </>
         )}
       </section>

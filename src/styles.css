@@ -1184,3 +1184,8 @@ th { background: #f3f4fa; }
 .chip.yarn-ground { background: #e7f8f1; } .chip.yarn-ground b { color: #047857; }
 .chip.yarn-weft { background: #fdf3e2; } .chip.yarn-weft b { color: #b45309; }
 .chip.yarn-fancy { background: #fde8f2; } .chip.yarn-fancy b { color: #be185d; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { border: none; border-radius: 0; padding: 6px 12px; background: #fff; }
+.seg button.on { background: var(--primary); color: #fff; font-weight: 600; }
+.clickable-text { cursor: pointer; text-decoration: underline; }
+.group-table .grp-bal { white-space: nowrap; }
