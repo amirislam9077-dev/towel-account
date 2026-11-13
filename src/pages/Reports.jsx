@@ -249,7 +249,7 @@ export const REPORTS = {
     },
     cols: [
       T('Yarn (Blend · Count · Spinning)', (r) => r.yarn, { strong: true }), T('Used as', (r) => YARNS.map(([, n]) => n).filter((n) => r.used.has(n)).join(', ')),
-      T('PO No', (r) => uniq(r.nos).join(', '), { wrap: true }), N('Net Lbs', (r) => r.lbs, 2, { chip: '' }), N('Bags Needed', (r) => r.need, 0, { chip: '' }),
+      T('PO No', (r) => uniq(r.nos).join(', '), { wrap: true }), N('Bags Needed', (r) => r.need, 0, { chip: '' }),
       N('Received / Issued', (r) => r.got, 0, { chip: 'net' }), N('Balance', (r) => r.balance, 0, { chip: 'base' }),
     ],
   },
@@ -477,7 +477,7 @@ function YarnGroupView({ groups, nav }) {
             <thead>
               <tr>
                 <th>Quality</th><th>For</th><th>Yarn (Blend · Count · Spinning)</th><th className="num">%</th><th className="num">Shortage %</th>
-                <th className="num">Net Lbs</th><th className="num">Bags Needed</th><th className="num">{g.verb} Bags</th><th className="num">Balance</th>
+                <th className="num">Bags Needed</th><th className="num">{g.verb} Bags</th><th className="num">Balance</th>
               </tr>
             </thead>
             <tbody>
@@ -488,18 +488,17 @@ function YarnGroupView({ groups, nav }) {
                   <td className="strong">{l.text}</td>
                   <td className="num">{fmt(l.pct)}%</td>
                   <td className="num">{fmt(l.shortage, 2)}%</td>
-                  <td className="num">{fmt(l.lbs, 2)}</td>
                   <td className="num strong">{fmt(l.need)}</td>
                   <td className="num good">{fmt(l.got)}</td>
                   <td className={`num strong ${l.balance > 0 ? 'warn' : l.balance < 0 ? 'bad' : 'good'}`}>{fmt(l.balance)}</td>
                 </tr>
               ))}
-              {!g.lines.length && <tr><td colSpan={9} className="muted">No yarn % / weight on this PO</td></tr>}
+              {!g.lines.length && <tr><td colSpan={8} className="muted">No yarn % / weight on this PO</td></tr>}
             </tbody>
             <tfoot>
               <tr>
                 <td colSpan={5}>{g.po.no} TOTAL</td>
-                <td className="num">{fmt(g.lbs, 2)}</td><td className="num">{fmt(g.need)}</td><td className="num">{fmt(g.got)}</td><td className="num">{fmt(g.balance)}</td>
+                <td className="num">{fmt(g.need)}</td><td className="num">{fmt(g.got)}</td><td className="num">{fmt(g.balance)}</td>
               </tr>
             </tfoot>
           </table>
@@ -507,7 +506,6 @@ function YarnGroupView({ groups, nav }) {
       ))}
       <div className="po-box grand">
         <span>GRAND TOTAL · {groups.length} PO(s)</span>
-        <span>{fmt(tot.lbs, 2)} Lbs</span>
         <span>Need {fmt(tot.need)} Bags</span>
         <span>{verb} {fmt(tot.got)} Bags</span>
         <b>Balance {fmt(tot.balance)} Bags</b>
