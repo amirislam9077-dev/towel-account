@@ -18,6 +18,7 @@ const ICON = {
   loom: 'M3 5h18M3 19h18M6 5v14M10 5v14M14 5v14M18 5v14',
   factory: 'M2 20h20M4 20V10l5 3V10l5 3V6l6 4v10',
   chart: 'M3 3v18h18M8 17v-5M13 17V8M18 17v-9',
+  inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
   truck: 'M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
 };
 // Sub-menu of Al Hasan Towel (more pages will be added: challans, payments, ledger, reports …)
@@ -25,7 +26,8 @@ const SUB = [
   { to: '/towel', label: 'Dashboard', icon: 'home', exact: true, group: 0 },
   { to: '/towel/po', label: 'Exporter Towel PO', icon: 'file', group: 1 },
   { to: '/towel/loom-po', label: 'Loom Towel PO', icon: 'loom', group: 1 },
-  { to: '/towel/yarn-challan', label: 'Yarn Receive / Issue', icon: 'truck', group: 2 },
+  { to: '/towel/yarn-receive', label: 'Yarn Receive (Exporter)', icon: 'inbox', group: 2 },
+  { to: '/towel/yarn-issue', label: 'Yarn Issue (Loom)', icon: 'truck', group: 2 },
   { to: '/towel/exporters', label: 'Exporters', icon: 'users', group: 3 },
   { to: '/towel/looms', label: 'Looms', icon: 'factory', group: 3 },
   { to: '/towel/reports', label: 'Reports', icon: 'chart', group: 4 },
@@ -89,9 +91,13 @@ export default function App() {
           <Route path="/towel/loom-po/:id/print" element={<TowelPoPrint key="ltpo" kind="loom" />} />
           <Route path="/towel/exporters" element={<Parties key="exp" type="exporter" />} />
           <Route path="/towel/looms" element={<Parties key="loom" type="loom" />} />
-          <Route path="/towel/yarn-challan" element={<YarnChallan key="yc" />} />
-          <Route path="/towel/yarn-challan/:id/edit" element={<YarnChallan key="yc" />} />
-          <Route path="/towel/yarn-challan/:id/print" element={<YarnChallanPrint />} />
+          <Route path="/towel/yarn-receive" element={<YarnChallan key="ycr" mode="receive" />} />
+          <Route path="/towel/yarn-receive/:id/edit" element={<YarnChallan key="ycr" mode="receive" />} />
+          <Route path="/towel/yarn-receive/:id/print" element={<YarnChallanPrint />} />
+          <Route path="/towel/yarn-issue" element={<YarnChallan key="yci" mode="issue" />} />
+          <Route path="/towel/yarn-issue/:id/edit" element={<YarnChallan key="yci" mode="issue" />} />
+          <Route path="/towel/yarn-issue/:id/print" element={<YarnChallanPrint />} />
+          <Route path="/towel/yarn-challan" element={<Navigate to="/towel/yarn-receive" replace />} />
           <Route path="/towel/reports" element={<Navigate to="/towel/reports/epo-register" replace />} />
           <Route path="/towel/reports/:type" element={<Reports />} />
           <Route path="*" element={<Navigate to="/towel" replace />} />

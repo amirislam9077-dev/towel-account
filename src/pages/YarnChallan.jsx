@@ -14,7 +14,8 @@ import NumberInput from '../components/NumberInput.jsx';
 import DateInput from '../components/DateInput.jsx';
 import { showToast } from '../components/Toast.jsx';
 
-const BASE = '/towel/yarn-challan';
+// two pages: Yarn Receive (from exporter) and Yarn Issue (to loom)
+export const challanBase = (type) => (type === 'issue' ? '/towel/yarn-issue' : '/towel/yarn-receive');
 const COLL = 'yarn-challans';
 
 const blank = (type = 'receive') => ({
@@ -50,7 +51,8 @@ function readPicture(file) {
   });
 }
 
-export default function YarnChallan() {
+export default function YarnChallan({ mode = 'receive' }) {
+  const BASE = challanBase(mode);
   const { id } = useParams();
   const [search] = useSearchParams();
   const nav = useNavigate();
@@ -65,7 +67,6 @@ export default function YarnChallan() {
   const [saving, setSaving] = useState(false);
   const [showPic, setShowPic] = useState(false);
   const [q, setQ] = useState('');
-  const [fType, setFType] = useState('');
 
   const loadChallans = () => api.list(COLL).then((x) => { setChallans(x); return x; });
   const loadLookups = () => api.list('lookups').then(setLookups);
@@ -80,14 +81,14 @@ export default function YarnChallan() {
         let doc;
         if (id) {
           const saved = await api.get(COLL, id);
-          doc = { ...blank(), ...saved, type: challanType(saved) };
+          doc = { ...blank(mode), ...saved, type: challanType(saved) };
           const T = CHALLAN_TYPES[doc.type];
           const po = (doc.type === 'issue' ? lp : ep).find((p) => p.id === doc[T.poField]);
           if (po) doc.lines = linesFor(po, doc.type, all, id, saved.lines || []);
         } else {
-          doc = { ...blank(), no: await api.nextNo(COLL) };
-          const e = ep.find((p) => p.id === search.get('epo'));
-          const l = lp.find((p) => p.id === search.get('lpo'));
+          doc = { ...blank(mode), no: await api.nextNo(COLL) };
+          const e = mode === 'receive' && ep.find((p) => p.id === search.get('epo'));
+          const l = mode === 'issue' && lp.find((p) => p.id === search.get('lpo'));
           if (e) doc = { ...doc, type: 'receive', exporterPoId: e.id, lines: linesFor(e, 'receive', all) };
           if (l) doc = { ...doc, type: 'issue', loomPoId: l.id, lines: linesFor(l, 'issue', all) };
         }
@@ -97,7 +98,7 @@ export default function YarnChallan() {
       }
     })();
     return () => { alive = false; };
-  }, [id]);
+  }, [id, mode]);
 
   const name = useMemo(() => Object.fromEntries(parties.map((p) => [p.id, p.name])), [parties]);
   const eById = useMemo(() => Object.fromEntries(epos.map((p) => [p.id, p])), [epos]);
@@ -122,9 +123,6 @@ export default function YarnChallan() {
   const partyOf = (p, type = ch.type) => name[type === 'issue' ? p?.loomId : p?.exporterId] || '—';
   const set = (k) => (e) => setCh({ ...ch, [k]: e.target.value });
 
-  function chooseType(type) {
-    setCh({ ...ch, type, exporterPoId: '', loomPoId: '', lines: [] });
-  }
   function choosePo(poId) {
     const p = isIssue ? lById[poId] : eById[poId];
     setCh({ ...ch, [T.poField]: poId, lines: p ? linesFor(p, ch.type, challans, id) : [] });
@@ -207,7 +205,7 @@ export default function YarnChallan() {
 
   // list: the chosen PO's challans, otherwise all
   const list = (po ? challans.filter((c) => challanType(c) === ch.type && c[T.poField] === po.id) : challans)
-    .filter((c) => !fType || challanType(c) === fType)
+    .filter((c) => challanType(c) === mode)
     .filter((c) => {
       if (!q.trim()) return true;
       const p = poOf(c);
@@ -242,27 +240,19 @@ export default function YarnChallan() {
 
       <form onSubmit={(e) => save(e, false)} className="no-print po-compact dc-steps">
         <div className="page-head">
-          <h2>{id ? `Edit Yarn Challan ${ch.no}` : 'Yarn Receive / Issue Challan'}</h2>
+          <h2>{id ? `Edit Yarn ${isIssue ? 'Issue' : 'Receive'} Challan ${ch.no}` : isIssue ? 'Yarn Issue Challan (to Loom)' : 'Yarn Receive Challan (from Exporter)'}</h2>
           <span className="muted">Fill the steps from top to bottom</span>
         </div>
 
-        {/* STEP 1 — receive or issue */}
-        <div className="po-section">
-          <div className="sec-title"><span className="sec-no">1</span>What are you doing?</div>
-          <div className="choice-row">
-            {Object.keys(CHALLAN_TYPES).map((k) => (
-              <button type="button" key={k} className={`choice ${k} ${ch.type === k ? 'on' : ''}`}
-                onClick={() => !id && chooseType(k)} disabled={!!id && ch.type !== k}>
-                <b>{k === 'issue' ? '⬆ Issue yarn TO a Loom' : '⬇ Receive yarn FROM the Exporter'}</b>
-                <span>{k === 'issue' ? 'Bags going out to a weaver, against a Loom Towel PO' : 'Bags coming in from the exporter, against an Exporter Towel PO'}</span>
-              </button>
-            ))}
-          </div>
+        {/* what this page does (Receive and Issue have their own pages / menu buttons) */}
+        <div className={`choice ${ch.type} on mode-banner`}>
+          <b>{isIssue ? '⬆ Issue yarn TO a Loom' : '⬇ Receive yarn FROM the Exporter'}</b>
+          <span>{isIssue ? 'Bags going out to a weaver, against a Loom Towel PO' : 'Bags coming in from the exporter, against an Exporter Towel PO'}</span>
         </div>
 
         {/* STEP 2 — which PO */}
         <div className="po-section">
-          <div className="sec-title"><span className="sec-no">2</span>Select the {T.poLabel}</div>
+          <div className="sec-title"><span className="sec-no">1</span>Select the {T.poLabel}</div>
           <select className="big-select" value={ch[T.poField] || ''} onChange={(e) => choosePo(e.target.value)} required>
             <option value="">-- select {T.poLabel} --</option>
             {poOptions.map(({ p, b, done }) => (
@@ -288,7 +278,7 @@ export default function YarnChallan() {
         {po && (
           <div className="po-section">
             <div className="sec-title">
-              <span className="sec-no">3</span>How many bags of each yarn {isIssue ? 'are you issuing' : 'did you receive'}?
+              <span className="sec-no">2</span>How many bags of each yarn {isIssue ? 'are you issuing' : 'did you receive'}?
               <div className="bags-bal bal-corner">
                 <div><small>Balance now</small><b>{fmt(bal.balance)}</b></div>
                 <div className="arrow">−</div>
@@ -344,7 +334,7 @@ export default function YarnChallan() {
 
         {/* STEP 4 — challan details */}
         <div className="po-section">
-          <div className="sec-title"><span className="sec-no">{po ? 4 : 3}</span>Challan details</div>
+          <div className="sec-title"><span className="sec-no">{po ? 3 : 2}</span>Challan details</div>
           <div className="grid dc-grid">
             <label>Challan Ref No<input value={ch.no} disabled /></label>
             <label>Date *<DateInput value={ch.date} onChange={(v) => setCh({ ...ch, date: v })} required /></label>
@@ -381,23 +371,16 @@ export default function YarnChallan() {
 
       {/* ---- list ---- */}
       <div className="page-head list-head">
-        <h3 style={{ margin: 0 }}>{po ? `${T.poLabel} ${po.no}: all ${isIssue ? 'issue' : 'receive'} challans` : 'All Yarn Challans'}</h3>
+        <h3 style={{ margin: 0 }}>{po ? `${T.poLabel} ${po.no}: all ${isIssue ? 'issue' : 'receive'} challans` : `All Yarn ${isIssue ? 'Issue' : 'Receive'} Challans`}</h3>
         <div className="stat-chips" style={{ margin: 0 }}>
           <div className="chip"><small>Challans</small><b>{list.length}</b></div>
-          {(!po || !isIssue) && <div className="chip net"><small>Received</small><b>{fmt(sumRecv)} Bags</b></div>}
-          {(!po || isIssue) && <div className="chip base"><small>Issued</small><b>{fmt(sumIss)} Bags</b></div>}
+          {!isIssue && <div className="chip net"><small>Received</small><b>{fmt(sumRecv)} Bags</b></div>}
+          {isIssue && <div className="chip base"><small>Issued</small><b>{fmt(sumIss)} Bags</b></div>}
           {po && <div className="chip total"><small>Balance</small><b>{fmt(bal.balance)} Bags</b></div>}
         </div>
       </div>
       <div className="toolbar no-print">
         <input type="search" placeholder="Search challan, PO, party, yarn, vehicle…" value={q} onChange={(e) => setQ(e.target.value)} />
-        {!po && (
-          <select value={fType} onChange={(e) => setFType(e.target.value)}>
-            <option value="">Receive + Issue</option>
-            <option value="receive">Receive only</option>
-            <option value="issue">Issue only</option>
-          </select>
-        )}
       </div>
       <div className="table-wrap">
         <table>

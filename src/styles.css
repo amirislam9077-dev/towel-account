@@ -1203,3 +1203,5 @@ th { background: #f3f4fa; }
 .po-box .q-finish { font-size: 12px; font-style: italic; margin-top: 2px; }
 .po-box .q-item { margin-top: 5px; padding: 3px 8px; border-radius: 6px; background: #eef0fd; color: var(--primary-dark); font-size: 12px; }
 .po-box tr.q-start td { border-top: 2px solid var(--border); }
+
+.mode-banner { display: flex; margin-bottom: 10px; cursor: default; }

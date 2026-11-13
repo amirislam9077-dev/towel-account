@@ -816,7 +816,7 @@ export default function TowelPo({ kind = 'exporter' }) {
                         <button title="New Loom Towel PO against this Exporter Towel PO" onClick={() => { nav(`/towel/loom-po?epo=${p.id}`); window.scrollTo({ top: 0 }); }}>+L</button>
                       )}
                       <button title={isLoom ? 'Issue yarn to this loom (Yarn Issue Challan)' : 'Receive yarn from this exporter (Yarn Receive Challan)'}
-                        onClick={() => { nav(`/towel/yarn-challan?${isLoom ? 'lpo' : 'epo'}=${p.id}`); window.scrollTo({ top: 0 }); }}>+Y</button>
+                        onClick={() => { nav(isLoom ? `/towel/yarn-issue?lpo=${p.id}` : `/towel/yarn-receive?epo=${p.id}`); window.scrollTo({ top: 0 }); }}>+Y</button>
                       <button title="Delete" className="danger" onClick={() => del(p)}>🗑</button>
                     </div>
                   </td>

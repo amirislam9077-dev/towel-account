@@ -312,7 +312,7 @@ export const REPORTS = {
       const po = t === 'issue' ? lpoOf(c.loomPoId) : epoOf(c.exporterPoId);
       const ep = t === 'issue' ? epoOf(po?.exporterPoId) : po;
       return (c.lines || []).map((l) => ({
-        _link: `/towel/yarn-challan/${c.id}/edit`, no: c.no, date: c.date, type: t === 'issue' ? 'Issue' : 'Receive',
+        _link: `/towel/${t === 'issue' ? 'yarn-issue' : 'yarn-receive'}/${c.id}/edit`, no: c.no, date: c.date, type: t === 'issue' ? 'Issue' : 'Receive',
         po: po?.no || '', party: name(t === 'issue' ? po?.loomId : po?.exporterId), epo: ep?.no || '',
         quality: l.quality, for: yarnName(l.y), yarn: l.yarnText, brand: l.brand || '', bags: num(l.bags),
         recv: t === 'receive' ? num(l.bags) : 0, iss: t === 'issue' ? num(l.bags) : 0,
@@ -332,7 +332,7 @@ export const REPORTS = {
     group: 'Yarn Reports', title: 'Receive Balance (Exporter)', sub: 'Each Exporter PO yarn: bags needed, received from the exporter and balance',
     src: 'epo',
     rows: ({ epos, allYcs, name }) => epos.flatMap((p) => yarnBalance(p, 'receive', allYcs).slots.map((s) => ({
-      _link: `/towel/yarn-challan?epo=${p.id}`, no: p.no, date: p.date, party: name(p.exporterId),
+      _link: `/towel/yarn-receive?epo=${p.id}`, no: p.no, date: p.date, party: name(p.exporterId),
       quality: `Q${s.qi + 1} ${s.quality}`, for: s.name, yarn: s.text, need: s.need, done: s.done, balance: s.balance,
       chs: slotChallans(allYcs, 'receive', 'exporterPoId', p.id, s.qKey, s.y),
     }))),
@@ -350,7 +350,7 @@ export const REPORTS = {
     group: 'Yarn Reports', title: 'Issue Balance (Loom)', sub: 'Each Loom PO yarn: bags required, issued to the loom and balance',
     src: 'lpo',
     rows: ({ lpos, allYcs, name, epoOf }) => lpos.flatMap((p) => yarnBalance(p, 'issue', allYcs).slots.map((s) => ({
-      _link: `/towel/yarn-challan?lpo=${p.id}`, no: p.no, date: p.date, party: name(p.loomId), epo: epoOf(p.exporterPoId)?.no || '',
+      _link: `/towel/yarn-issue?lpo=${p.id}`, no: p.no, date: p.date, party: name(p.loomId), epo: epoOf(p.exporterPoId)?.no || '',
       quality: `Q${s.qi + 1} ${s.quality}`, for: s.name, yarn: s.text, need: s.need, done: s.done, balance: s.balance,
       chs: slotChallans(allYcs, 'issue', 'loomPoId', p.id, s.qKey, s.y),
     }))),

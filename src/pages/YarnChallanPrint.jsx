@@ -4,7 +4,6 @@ import { api } from '../api.js';
 import { fmt, fmtDate } from '../util.js';
 import { challanType, challanBags, yarnName } from '../towelPo.js';
 
-const BASE = '/towel/yarn-challan';
 
 export default function YarnChallanPrint() {
   const { id } = useParams();
@@ -28,6 +27,7 @@ export default function YarnChallanPrint() {
   if (err) return <div className="notice err">{err}</div>;
   if (!d) return <p className="muted">Loading…</p>;
   const { ch, po, ep, party, exporter, issue } = d;
+  const BASE = issue ? '/towel/yarn-issue' : '/towel/yarn-receive';
 
   return (
     <>

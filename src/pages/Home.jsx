@@ -95,7 +95,9 @@ export default function Home() {
           <span>→</span>
           <button onClick={() => nav('/towel/loom-po')}>Loom Towel PO</button>
           <span>→</span>
-          <button onClick={() => nav('/towel/yarn-challan')}>Yarn Receive / Issue</button>
+          <button onClick={() => nav('/towel/yarn-receive')}>Yarn Receive</button>
+          <span>→</span>
+          <button onClick={() => nav('/towel/yarn-issue')}>Yarn Issue</button>
           <span>→</span>
           <span className="flow-step end">Weaving</span>
         </div>
@@ -117,7 +119,8 @@ export default function Home() {
         <Module nav={nav} tone="t1" icon={I.file} title="Orders & Challans" links={[
           { to: '/towel/po', icon: I.file, title: 'Exporter Towel PO', sub: 'Order from exporter: quality, yarn, items, Lbs', count: d.epos.length },
           { to: '/towel/loom-po', icon: I.loom, title: 'Loom Towel PO', sub: 'Weaving order to a loom against an Exporter PO', count: d.lpos.length },
-          { to: '/towel/yarn-challan', icon: I.truck, title: 'Yarn Receive / Issue', sub: 'Yarn from exporter, bags to looms', count: d.ycs.length },
+          { to: '/towel/yarn-receive', icon: I.truck, title: 'Yarn Receive (Exporter)', sub: 'Yarn bags received from the exporter', count: d.ycs.filter((c) => c.type !== 'issue').length },
+          { to: '/towel/yarn-issue', icon: I.truck, title: 'Yarn Issue (Loom)', sub: 'Yarn bags issued to looms', count: d.ycs.filter((c) => c.type === 'issue').length },
         ]} />
         <Module nav={nav} tone="t2" icon={I.users} title="Parties" links={[
           { to: '/towel/exporters', icon: I.users, title: 'Exporters', sub: 'Parties who give towel orders', count: s.exporters },
