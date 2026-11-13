@@ -1208,3 +1208,14 @@ th { background: #f3f4fa; }
 
 /* dashboard links: show the full name (wrap to 2 lines if needed) */
 .dash .mod-txt strong { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+
+/* dashboard: names on one line, bigger link buttons; Reports in its own full-width row */
+.mods { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mod-link { padding: 10px 14px; gap: 11px; }
+.mod-ic { width: 30px; height: 30px; border-radius: 9px; }
+.mod-ic svg { width: 16px; height: 16px; }
+.dash .mod-txt strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mod.span2 { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mod.span2 .mod-link, .mod.span2 .mod-link:first-of-type { border-top: 1px solid #eef0f6; border-right: 1px solid #eef0f6; }
+@media (max-width: 1100px) { .mods { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mod.span2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .mods, .mod.span2 { grid-template-columns: 1fr; } }
