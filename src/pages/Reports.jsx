@@ -34,7 +34,8 @@ export const REPORTS = {
     rows: ({ epos, name }) => epos.map((p) => {
       const t = poTotals(p);
       return {
-        _link: `/towel/po/${p.id}/edit`, no: p.no, date: p.date, party: name(p.exporterId), ref: p.refNo || '',
+        // exporter: first word of the name only (Eastern Textiles (Pvt) Ltd → Eastern)
+        _link: `/towel/po/${p.id}/edit`, no: p.no, date: p.date, party: name(p.exporterId).trim().split(/\s+/)[0], ref: p.refNo || '',
         qualities: uniq((p.qualities || []).map(qualityTitle)).join(' ; '),
         items: uniq((p.qualities || []).flatMap((q) => (q.items || []).map((i) => i.item))).join(', '),
         delivery: p.deliveryDate, ...t, status: p.status,
