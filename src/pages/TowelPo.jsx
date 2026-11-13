@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { fmt, fmtDate, inWords, num } from '../util.js';
 import {
-  YARNS, SHORTAGE_FIELDS, RATE_UNITS, rateUnitShort, yarnText, qualityTitle, construction, lbsPerDozen, itemLbs, itemAmount,
+  YARNS, SHORTAGE_FIELDS, yarnText, qualityTitle, construction,
   qualityCalc, poTotals, withYarnPct, emptyItem, emptyQuality, blankTowelPo, LBS_PER_BAG,
 } from '../towelPo.js';
 import Notice from '../components/Notice.jsx';
@@ -122,7 +122,6 @@ export default function TowelPo() {
         if (!it.item) return fail(`${r}select the Item`);
         if (!(num(it.qty) > 0)) return fail(`${r}enter Qty (Pcs)`);
         if (!(num(it.pcsWt) > 0)) return fail(`${r}enter Pcs Wt (Gram)`);
-        if (!(num(it.rate) > 0)) return fail(`${r}enter the Rate`);
       }
       const pct = YARNS.reduce((s, [y]) => s + num(qa[y + 'Pct']), 0);
       if (Math.abs(pct - 100) > 0.01) return fail(`${p}Pile % + Ground % + Weft % + Fancy % must be 100 (now ${fmt(pct, 2)})`);
@@ -184,14 +183,13 @@ export default function TowelPo() {
   const sum = (k) => list.reduce((s, r) => s + r.t[k], 0);
 
   function exportExcel() {
-    const head = ['PO No', 'Date', 'Exporter', 'Ref No', 'Quality', 'Item', 'Size', 'Pcs Wt (Gm)', 'Lbs / Dz', 'Qty (Pcs)', 'Rate', 'Rate Unit', 'Total Lbs', 'Amount', 'Delivery Date', 'Status'];
+    const head = ['PO No', 'Date', 'Exporter', 'Ref No', 'Quality', 'Item Name', 'Width', 'Length', 'Gram', 'Total Pcs', 'Delivery Date', 'Status'];
     const lines = [head];
     for (const p of list) {
       for (const qa of p.qualities || []) {
         for (const it of qa.items || []) {
           lines.push([p.no, fmtDate(p.date), partyName[p.exporterId] || '', p.refNo || '', qualityTitle(qa), it.item,
-            `${it.width || ''} x ${it.length || ''}`, num(it.pcsWt), lbsPerDozen(it).toFixed(2), num(it.qty), num(it.rate), rateUnitShort(it.rateUnit),
-            itemLbs(it).toFixed(2), itemAmount(it).toFixed(2), fmtDate(p.deliveryDate), p.status]);
+            it.width || '', it.length || '', num(it.pcsWt), num(it.qty), fmtDate(p.deliveryDate), p.status]);
         }
       }
     }
@@ -401,26 +399,22 @@ export default function TowelPo() {
                   )}
                 </div>
 
-                {/* 3. Items */}
+                {/* 3. Items: only item, width, length, gram and pieces */}
                 <div className="po-section">
                   <div className="sec-title">
-                    <span className="sec-no">3</span>Items (Size, Weight, Qty &amp; Rate)
-                    <span className="sec-ref"><small>TOTAL</small> {fmt(c.pcs)} Pcs · {fmt(c.lbs, 2)} Lbs · Rs {fmt(c.amount, 2)}</span>
+                    <span className="sec-no">3</span>Items
+                    <span className="sec-ref"><small>TOTAL</small> {fmt(c.pcs)} Pcs</span>
                   </div>
                   <div className="table-wrap towel-items-wrap">
                     <table className="towel-items">
                       <thead>
                         <tr>
                           <th className="c-sno">S.No</th>
-                          <th className="c-item">Item</th>
-                          <th className="c-size">Size (W x L)</th>
-                          <th className="c-n">Pcs Wt (Gm)</th>
-                          <th className="c-n num">Lbs / Dz</th>
-                          <th className="c-n">Qty (Pcs)</th>
-                          <th className="c-n">Rate / Lbs</th>
-                          <th className="c-unit">Rate Unit</th>
-                          <th className="c-n num">Total Lbs</th>
-                          <th className="c-n num">Amount</th>
+                          <th className="c-item">Item Name</th>
+                          <th className="c-n">Width</th>
+                          <th className="c-n">Length</th>
+                          <th className="c-n">Gram</th>
+                          <th className="c-n">Total Pcs</th>
                           <th className="c-x"></th>
                         </tr>
                       </thead>
@@ -431,24 +425,10 @@ export default function TowelPo() {
                             <td className="c-item">
                               <LookupSelect value={it.item} onChange={(v) => setItem(qi, ii, { item: v })} placeholder="-- item --" {...bind('towelItem', 'item (e.g. Hand Towel)')} />
                             </td>
-                            <td className="c-size">
-                              <div className="size-row">
-                                <NumberInput value={it.width} onChange={(v) => setItem(qi, ii, { width: v })} placeholder="W" />
-                                <span>x</span>
-                                <NumberInput value={it.length} onChange={(v) => setItem(qi, ii, { length: v })} placeholder="L" />
-                              </div>
-                            </td>
+                            <td><NumberInput value={it.width} onChange={(v) => setItem(qi, ii, { width: v })} placeholder="Width" /></td>
+                            <td><NumberInput value={it.length} onChange={(v) => setItem(qi, ii, { length: v })} placeholder="Length" /></td>
                             <td><NumberInput value={it.pcsWt} onChange={(v) => setItem(qi, ii, { pcsWt: v })} unit="Gm" placeholder="0" /></td>
-                            <td className="num calc-cell">{num(it.pcsWt) ? fmt(lbsPerDozen(it), 2) : '—'}</td>
                             <td><NumberInput value={it.qty} onChange={(v) => setItem(qi, ii, { qty: v })} unit="Pcs" placeholder="0" /></td>
-                            <td><NumberInput value={it.rate} onChange={(v) => setItem(qi, ii, { rate: v })} placeholder="0.00" decimals={2} /></td>
-                            <td className="c-unit">
-                              <select value={it.rateUnit || 'lbs'} onChange={(e) => setItem(qi, ii, { rateUnit: e.target.value })}>
-                                {RATE_UNITS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-                              </select>
-                            </td>
-                            <td className="num calc-cell">{itemLbs(it) ? fmt(itemLbs(it), 2) : '—'}</td>
-                            <td className="num calc-cell strong">{itemAmount(it) ? fmt(itemAmount(it), 2) : '—'}</td>
                             <td className="c-x">
                               <button type="button" className="icon-btn del" title="Remove row" onClick={() => removeItem(qi, ii)}>🗑</button>
                             </td>
@@ -462,17 +442,11 @@ export default function TowelPo() {
                           </td>
                           <td colSpan={3} className="num">Total</td>
                           <td className="num">{fmt(c.pcs)} Pcs</td>
-                          <td colSpan={2}></td>
-                          <td className="num">{fmt(c.lbs, 2)}</td>
-                          <td className="num">{fmt(c.amount, 2)}</td>
                           <td></td>
                         </tr>
                       </tfoot>
                     </table>
                   </div>
-                  <small className="muted formula-note">
-                    Lbs / Dz = Pcs Wt × 12 ÷ 453.59 · Total Lbs = Qty × Pcs Wt ÷ 453.59 · Amount = Rate × Total Lbs (or × Pcs / × Dozen)
-                  </small>
                 </div>
 
                 {/* 4. Shortage & yarn requirement */}

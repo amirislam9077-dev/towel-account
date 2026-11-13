@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { fmt, fmtDate, inWords, num } from '../util.js';
-import { qualityTitle, construction, qualityCalc, poTotals, lbsPerDozen, itemLbs, itemAmount, rateUnitShort, sizeText, YARNS, yarnText } from '../towelPo.js';
+import { qualityTitle, construction, qualityCalc, poTotals, YARNS, yarnText } from '../towelPo.js';
 
 const BASE = '/towel/po';
 
@@ -54,8 +54,7 @@ export default function TowelPoPrint() {
               <table className="items">
                 <thead>
                   <tr>
-                    <th>S.NO</th><th>ITEM</th><th className="num">PCS WT (GM)</th><th>SIZE</th><th className="num">LBS / DZ</th>
-                    <th className="num">QTY (PCS)</th><th className="num">RATE</th><th className="num">T LBS</th><th className="num">AMOUNT</th>
+                    <th>S.NO</th><th>ITEM NAME</th><th className="num">WIDTH</th><th className="num">LENGTH</th><th className="num">GRAM</th><th className="num">TOTAL PCS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -63,13 +62,10 @@ export default function TowelPoPrint() {
                     <tr key={it.key || ii}>
                       <td>{ii + 1}</td>
                       <td>{String(it.item || '').toUpperCase()}</td>
+                      <td className="num">{it.width}</td>
+                      <td className="num">{it.length}</td>
                       <td className="num">{fmt(it.pcsWt)}</td>
-                      <td>{sizeText(it)}</td>
-                      <td className="num">{fmt(lbsPerDozen(it), 2)}</td>
-                      <td className="num">{fmt(it.qty)} PCS</td>
-                      <td className="num">{fmt(it.rate, 2)} <small>{rateUnitShort(it.rateUnit).toUpperCase()}</small></td>
-                      <td className="num">{fmt(itemLbs(it), 2)}</td>
-                      <td className="num">{fmt(itemAmount(it), 2)}</td>
+                      <td className="num">{fmt(it.qty)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -77,9 +73,6 @@ export default function TowelPoPrint() {
                   <tr>
                     <td colSpan={5}>TOTAL</td>
                     <td className="num">{fmt(c.pcs)} PCS</td>
-                    <td></td>
-                    <td className="num">{fmt(c.lbs, 2)} LBS</td>
-                    <td className="num">{fmt(c.amount, 2)}</td>
                   </tr>
                 </tfoot>
               </table>
