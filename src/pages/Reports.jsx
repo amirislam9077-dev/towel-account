@@ -44,8 +44,6 @@ export const REPORTS = {
       T('PO No', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Exporter', (r) => r.party),
       T('Ref No', (r) => r.ref), T('Quality', (r) => r.qualities, { wrap: true }), T('Items', (r) => r.items, { wrap: true }),
       N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
-      N('Amount', (r) => r.amount, 2), N('GST', (r) => r.gst, 2), N('Total', (r) => r.total, 2, { chip: 'total' }),
-      T('Delivery', (r) => fmtDate(r.delivery), { sort: (r) => r.delivery }), T('Status', (r) => r.status, { tag: true }),
     ],
   },
 
