@@ -153,7 +153,7 @@ export const REPORTS = {
   },
 
   'loom-wise': {
-    group: 'PO Reports', title: 'Loom-wise Summary', sub: 'Orders given to each loom: pcs, Lbs, net bags and weaving amount',
+    group: 'PO Reports', title: 'Loom PO Summary', sub: 'Orders given to each loom: pcs, Lbs, net bags and weaving amount',
     src: 'lpo',
     rows: ({ lpos, name, epoOf }) => {
       const m = {};
