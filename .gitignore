@@ -15,3 +15,6 @@ server/data.json.tmp
 # local database password etc.
 .env
 server/aiven-ca.pem
+
+.vercel
+.env*
