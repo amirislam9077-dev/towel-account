@@ -1189,3 +1189,13 @@ th { background: #f3f4fa; }
 .seg button.on { background: var(--primary); color: #fff; font-weight: 600; }
 .clickable-text { cursor: pointer; text-decoration: underline; }
 .group-table .grp-bal { white-space: nowrap; }
+.po-boxes { display: flex; flex-direction: column; gap: 14px; }
+.po-box { background: #fff; border: 1px solid var(--border); border-top: 4px solid var(--primary); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px #1b1f3b0d; }
+.po-box-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 9px 14px; background: #eef0fd; color: var(--primary-dark); }
+.po-box-head .ref-chip { margin-left: 0; }
+.po-box-sum { margin-left: auto; }
+.po-box table { border-top: 1px solid var(--border); }
+.po-box.grand { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; padding: 10px 16px; border-top-color: var(--accent);
+  background: linear-gradient(90deg, #1e1b4b, #312e81); color: #fff; font-weight: 600; }
+.po-box.grand b { margin-left: auto; font-size: 17px; }
+@media print { .po-box { break-inside: avoid; } }
