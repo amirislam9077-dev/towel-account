@@ -978,3 +978,5 @@ table.towel-items tfoot td, table.yarn-req tfoot td { font-weight: 700; backgrou
   .po-compact .head-grid.towel-head { grid-template-columns: 100px 130px minmax(220px, 2fr) minmax(130px, 1fr) 130px 130px 125px 56px 100px; }
   .po-compact .head-grid.towel-head > label.span2 { grid-column: auto; }
 }
+.po-section .towel-subhead { margin-top: 16px; padding-top: 10px; border-top: 1px dashed var(--border); font-weight: 700; color: var(--primary-dark); font-size: 13px; }
+.po-section .towel-subhead .sec-ref { margin-left: auto; }

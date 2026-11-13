@@ -401,10 +401,10 @@ export default function TowelPo() {
                   )}
                 </div>
 
-                {/* 3. Items */}
+                {/* 3. Items + shortage & yarn requirement */}
                 <div className="po-section">
                   <div className="sec-title">
-                    <span className="sec-no">3</span>Items (Size, Weight, Qty &amp; Rate)
+                    <span className="sec-no">3</span>Items, Shortage &amp; Yarn Requirement
                     <span className="sec-ref" title="Items · total pcs · total lbs">
                       <small>TOTAL</small>{' '}
                       {/* each item: name, size W x L and Lbs per dozen, e.g. "Hand Towel 16 x 27 (2.99 Lbs/Dz), Wash Cloth 13 x 13 (0.79 Lbs/Dz)" */}
@@ -486,12 +486,10 @@ export default function TowelPo() {
                   <small className="muted formula-note">
                     Lbs / Dz = Pcs Wt × 12 ÷ 453.59 · Total Lbs = Qty × Pcs Wt ÷ 453.59 · Amount = Rate × Total Lbs (or × Pcs / × Dozen)
                   </small>
-                </div>
 
-                {/* 4. Shortage & yarn requirement */}
-                <div className="po-section">
-                  <div className="sec-title">
-                    <span className="sec-no">4</span>Shortage &amp; Yarn Requirement
+                  {/* shortage & yarn requirement, in the same section as the items */}
+                  <div className="subhead towel-subhead">
+                    <span>Shortage &amp; Yarn Requirement</span>
                     <span className="sec-ref"><small>NET</small> {fmt(c.netLbs, 2)} Lbs · {fmt(c.netBags, 2)} Bags</span>
                   </div>
                   <div className="grid shortage-grid towel-shortage">
@@ -556,7 +554,7 @@ export default function TowelPo() {
           </div>
 
           <div className="po-section">
-            <div className="sec-title"><span className="sec-no">5</span>Remarks</div>
+            <div className="sec-title"><span className="sec-no">4</span>Remarks</div>
             <textarea rows={2} value={po.remarks || ''} onChange={(e) => setPo({ ...po, remarks: e.target.value })} placeholder="Sample, labels, packing instructions…" style={{ width: '100%' }} />
           </div>
 
