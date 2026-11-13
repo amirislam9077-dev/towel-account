@@ -918,7 +918,7 @@ body.theme-looms .dc-rep .dash-ico, body.theme-looms .dc-ledger .dash-ico { back
 .quality-head .q-title { color: var(--primary-dark); font-size: 15px; }
 .quality-head .q-finish { color: var(--muted); font-size: 12px; font-style: italic; }
 .quality-head .danger { margin-left: auto; }
-.grid.towel-q-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.grid.towel-q-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .towel-yarns { grid-template-columns: 1fr !important; gap: 8px; }
 .yarn-field.towel-yarn { grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr); align-items: end; padding-top: 6px; }
 .towel-yarn .yarn-name { align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: 2px;
