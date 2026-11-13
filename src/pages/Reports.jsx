@@ -84,8 +84,6 @@ export const REPORTS = {
       T('LPO No', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Loom', (r) => r.party),
       T('Exporter PO', (r) => r.epo), T('Exporter', (r) => r.exporter), T('Items', (r) => r.items, { wrap: true }),
       N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
-      N('Avg Rate / Lbs', (r) => r.rate, 2, { total: false }), N('Weaving Amount', (r) => r.amount, 2), N('Total', (r) => r.total, 2, { chip: 'total' }),
-      T('Delivery', (r) => fmtDate(r.delivery), { sort: (r) => r.delivery }), T('Status', (r) => r.status, { tag: true }),
     ],
   },
 
