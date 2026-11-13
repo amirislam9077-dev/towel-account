@@ -59,7 +59,14 @@ async function mysqlStore() {
   };
   const DB = process.env.DB_NAME || 'towel_account';
   let pool;
-  const q = async (sql, args) => (await pool.query(sql, args))[0];
+  // Aiven closes idle connections; on a dropped connection retry the query once on a fresh one
+  const DROPPED = ['ECONNRESET', 'PROTOCOL_CONNECTION_LOST', 'EPIPE', 'ETIMEDOUT'];
+  const q = async (sql, args) => {
+    try { return (await pool.query(sql, args))[0]; } catch (e) {
+      if (!DROPPED.includes(e.code)) throw e;
+      return (await pool.query(sql, args))[0];
+    }
+  };
   const parse = (r) => (typeof r.data === 'string' ? JSON.parse(r.data) : r.data);
   return {
     kind: 'mysql',
@@ -68,7 +75,7 @@ async function mysqlStore() {
       const c = await mysql.createConnection(base);
       await c.query(`CREATE DATABASE IF NOT EXISTS \`${DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
       await c.end();
-      pool = mysql.createPool({ ...base, database: DB, connectionLimit: 4, waitForConnections: true });
+      pool = mysql.createPool({ ...base, database: DB, connectionLimit: 4, waitForConnections: true, enableKeepAlive: true, keepAliveInitialDelay: 10000, maxIdle: 2, idleTimeout: 60000 });
       await q(`CREATE TABLE IF NOT EXISTS docs (
         coll VARCHAR(60) NOT NULL, id VARCHAR(60) NOT NULL, data LONGTEXT NOT NULL,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
