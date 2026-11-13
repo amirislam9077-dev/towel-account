@@ -160,8 +160,13 @@ export const REPORTS = {
       for (const p of lpos) {
         const t = poTotals(p);
         const g = (m[p.loomId] ||= { party: name(p.loomId), nos: [], epos: [], pcs: 0, lbs: 0, netBags: 0, amount: 0, total: 0,
-          pileBags: 0, groundBags: 0, weftBags: 0, fancyBags: 0 });
+          pileBags: 0, groundBags: 0, weftBags: 0, fancyBags: 0, quals: [], items: [] });
         g.nos.push(p.no); g.epos.push(epoOf(p.exporterPoId)?.no);
+        // quality, and item with towel size and weight
+        for (const q of p.qualities || []) {
+          g.quals.push(qualityTitle(q));
+          for (const i of q.items || []) g.items.push([i.item, sizeText(i), num(i.pcsWt) ? `· ${fmt(i.pcsWt)} Gm` : ''].filter(Boolean).join(' '));
+        }
         g.pcs += t.pcs; g.lbs += t.lbs; g.netBags += t.netBags; g.amount += t.amount; g.total += t.total;
         // bags of each yarn for this loom
         for (const q of p.qualities || []) for (const y of qualityCalc(q).yarns) g[y.p + 'Bags'] += y.bags;
@@ -169,7 +174,8 @@ export const REPORTS = {
       return Object.values(m).map((g) => ({ ...g, count: g.nos.length, rate: g.lbs ? g.amount / g.lbs : 0 }));
     },
     cols: [
-      T('Loom', (r) => r.party, { strong: true }), T('LPO No', (r) => r.nos.sort().join(', '), { wrap: true }), T('Exporter POs', (r) => uniq(r.epos).join(', '), { wrap: true }),
+      T('Loom', (r) => r.party, { strong: true }), T('LPO No', (r) => r.nos.sort().join(', ')), T('Exporter POs', (r) => uniq(r.epos).join(', ')),
+      T('Quality', (r) => uniq(r.quals).join(' ; '), { wrap: true }), T('Items (Size · Weight)', (r) => uniq(r.items).join(', '), { wrap: true }),
       N('LPOs', (r) => r.count), N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }),
       ...YARNS.map(([y, n]) => N(`${y === 'weft' ? 'Bobbin' : n} Bags`, (r) => r[y + 'Bags'], 2, { chip: 'yarn-' + y })),
       N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
