@@ -39,12 +39,16 @@ export const REPORTS = {
         qualities: uniq((p.qualities || []).map(qualityTitle)).join(' ; '),
         items: uniq((p.qualities || []).flatMap((q) => (q.items || []).map((i) => i.item))).join(', '),
         delivery: p.deliveryDate, ...t, status: p.status,
+        // bags of each yarn: Pile / Ground / Weft (Bobbin) / Fancy
+        ...Object.fromEntries(YARNS.map(([y]) => [y + 'Bags', (p.qualities || []).reduce((s, q) => s + qualityCalc(q).yarns.find((x) => x.p === y).bags, 0)])),
       };
     }),
     cols: [
       T('PO No', (r) => r.no, { strong: true }), T('Date', (r) => fmtDate(r.date), { sort: (r) => r.date }), T('Exporter', (r) => r.party),
       T('Ref No', (r) => r.ref), T('Quality', (r) => r.qualities, { wrap: true }), T('Items', (r) => r.items, { wrap: true }),
-      N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
+      N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }),
+      ...YARNS.map(([y, n]) => N(`${y === 'weft' ? 'Bobbin' : n} Bags`, (r) => r[y + 'Bags'], 2, { chip: 'yarn-' + y })),
+      N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
     ],
   },
 
@@ -421,24 +425,7 @@ export default function Reports() {
   ]);
 
   return (
-    <div className="reports">
-      <aside className="rep-nav no-print">
-        {groups.map((g) => (
-          <div key={g} className="rep-group">
-            <div className="rep-group-title">{g}</div>
-            {REPORT_LIST.filter((r) => r.group === g).map((r) => (
-              <button key={r.key} className={r.key === type ? 'active' : ''} onClick={() => nav(`/towel/reports/${r.key}`)}>
-                <strong>{r.title}</strong><small>{r.sub}</small>
-              </button>
-            ))}
-          </div>
-        ))}
-        <div className="rep-group soon">
-          <div className="rep-group-title">Coming later</div>
-          <p>Payments and party ledger reports will come with their pages.</p>
-        </div>
-      </aside>
-
+    <div className="reports full">
       <section className="rep-main">
         <div className="page-head">
           <div>
@@ -446,6 +433,14 @@ export default function Reports() {
             <p className="muted" style={{ margin: 0 }}>{R.sub}</p>
           </div>
           <div className="row-actions big no-print">
+            {/* choose another report (no left menu) */}
+            <select className="rep-pick" value={type} onChange={(e) => nav(`/towel/reports/${e.target.value}`)}>
+              {groups.map((g) => (
+                <optgroup key={g} label={g}>
+                  {REPORT_LIST.filter((r) => r.group === g).map((r) => <option key={r.key} value={r.key}>{r.title}</option>)}
+                </optgroup>
+              ))}
+            </select>
             <button className="btn-print" onClick={() => window.print()}>Print</button>
             <button className="btn-excel" onClick={exportExcel} disabled={!rows.length}>Excel</button>
           </div>
