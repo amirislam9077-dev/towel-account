@@ -4,9 +4,11 @@ import Notice from '../components/Notice.jsx';
 import { showToast } from '../components/Toast.jsx';
 
 const blank = { name: '', contact: '', phone: '', address: '', ntn: '', strn: '' };
-const TYPE = 'exporter';
+const NAMES = { exporter: ['Exporter', 'Exporters'], loom: ['Loom', 'Looms'] };
 
-export default function Parties() {
+export default function Parties({ type = 'exporter' }) {
+  const TYPE = type;
+  const [one, many] = NAMES[type];
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blank);
   const [editId, setEditId] = useState(null);
@@ -14,7 +16,7 @@ export default function Parties() {
   const [msg, setMsg] = useState(null);
 
   const load = () => api.list('parties', `?type=${TYPE}`).then(setRows).catch((e) => setMsg({ type: 'err', text: e.message }));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); setForm(blank); setEditId(null); }, [type]);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   async function save(e) {
@@ -23,7 +25,7 @@ export default function Parties() {
       const body = { ...form, type: TYPE };
       if (editId) await api.update('parties', editId, body);
       else await api.create('parties', body);
-      showToast({ title: editId ? 'Updated successfully' : 'Saved successfully', text: `Exporter "${form.name}" has been ${editId ? 'updated' : 'saved'}.` });
+      showToast({ title: editId ? 'Updated successfully' : 'Saved successfully', text: `${one} "${form.name}" has been ${editId ? 'updated' : 'saved'}.` });
       setForm(blank);
       setEditId(null);
       load();
@@ -32,7 +34,7 @@ export default function Parties() {
     }
   }
   async function del(p) {
-    if (!confirm(`Delete exporter "${p.name}"?`)) return;
+    if (!confirm(`Delete ${one.toLowerCase()} "${p.name}"?`)) return;
     try {
       await api.remove('parties', p.id);
       load();
@@ -52,11 +54,11 @@ export default function Parties() {
 
   return (
     <>
-      <h2>Exporters</h2>
+      <h2>{many}</h2>
       <Notice msg={msg} onClose={() => setMsg(null)} />
       <form className="card" onSubmit={save}>
         <div className="grid">
-          <label>Exporter Name *<input value={form.name} onChange={set('name')} required autoFocus /></label>
+          <label>{one} Name *<input value={form.name} onChange={set('name')} required autoFocus /></label>
           <label>Contact Person<input value={form.contact} onChange={set('contact')} /></label>
           <label>Phone<input value={form.phone} onChange={set('phone')} /></label>
           <label>NTN<input value={form.ntn} onChange={set('ntn')} /></label>
@@ -64,14 +66,14 @@ export default function Parties() {
           <label className="wide">Address<input value={form.address} onChange={set('address')} /></label>
         </div>
         <div className="actions">
-          <button className="primary" type="submit">{editId ? 'Update' : '+ Add Exporter'}</button>
+          <button className="primary" type="submit">{editId ? 'Update' : `+ Add ${one}`}</button>
           {editId && <button type="button" onClick={() => { setEditId(null); setForm(blank); }}>Cancel</button>}
         </div>
       </form>
 
       <div className="toolbar">
-        <input type="search" placeholder="Search exporters…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <span className="muted">{shown.length} exporters</span>
+        <input type="search" placeholder={`Search ${many.toLowerCase()}…`} value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="muted">{shown.length} {many.toLowerCase()}</span>
       </div>
       <div className="table-wrap">
         <table>
@@ -95,7 +97,7 @@ export default function Parties() {
                 </td>
               </tr>
             ))}
-            {!shown.length && <tr><td colSpan={7} className="empty">No exporters yet</td></tr>}
+            {!shown.length && <tr><td colSpan={7} className="empty">No {many.toLowerCase()} yet</td></tr>}
           </tbody>
         </table>
       </div>

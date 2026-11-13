@@ -12,12 +12,16 @@ const ICON = {
   home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
   file: 'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5',
   users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  loom: 'M3 5h18M3 19h18M6 5v14M10 5v14M14 5v14M18 5v14',
+  factory: 'M2 20h20M4 20V10l5 3V10l5 3V6l6 4v10',
 };
 // Sub-menu of Al Hasan Towel (more pages will be added: challans, payments, ledger, reports …)
 const SUB = [
   { to: '/towel', label: 'Dashboard', icon: 'home', exact: true, group: 0 },
   { to: '/towel/po', label: 'Exporter Towel PO', icon: 'file', group: 1 },
+  { to: '/towel/loom-po', label: 'Loom Towel PO', icon: 'loom', group: 1 },
   { to: '/towel/exporters', label: 'Exporters', icon: 'users', group: 2 },
+  { to: '/towel/looms', label: 'Looms', icon: 'factory', group: 2 },
 ];
 const SubIcon = ({ name }) => (
   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -69,10 +73,15 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/towel" replace />} />
           <Route path="/towel" element={<Home />} />
-          <Route path="/towel/po" element={<TowelPo key="tpo" />} />
-          <Route path="/towel/po/:id/edit" element={<TowelPo key="tpo" />} />
-          <Route path="/towel/po/:id/print" element={<TowelPoPrint />} />
-          <Route path="/towel/exporters" element={<Parties />} />
+          {/* Exporter Towel PO and Loom Towel PO share one page (form on top, list below) and one print layout */}
+          <Route path="/towel/po" element={<TowelPo key="tpo" kind="exporter" />} />
+          <Route path="/towel/po/:id/edit" element={<TowelPo key="tpo" kind="exporter" />} />
+          <Route path="/towel/po/:id/print" element={<TowelPoPrint key="tpo" kind="exporter" />} />
+          <Route path="/towel/loom-po" element={<TowelPo key="ltpo" kind="loom" />} />
+          <Route path="/towel/loom-po/:id/edit" element={<TowelPo key="ltpo" kind="loom" />} />
+          <Route path="/towel/loom-po/:id/print" element={<TowelPoPrint key="ltpo" kind="loom" />} />
+          <Route path="/towel/exporters" element={<Parties key="exp" type="exporter" />} />
+          <Route path="/towel/looms" element={<Parties key="loom" type="loom" />} />
           <Route path="*" element={<Navigate to="/towel" replace />} />
         </Routes>
       </main>

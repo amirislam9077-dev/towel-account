@@ -7,8 +7,10 @@ import { getStore } from './store.js';
 const COLLECTIONS = {
   parties: null,
   lookups: null, // dropdown values: { kind, value }
-  'towel-pos': 'TPO',
+  'towel-pos': 'TPO', // Exporter Towel PO
+  'loom-towel-pos': 'LTPO', // Loom Towel PO (against an Exporter Towel PO)
 };
+const PARTY_TYPES = ['exporter', 'loom'];
 
 // Starter dropdown values — added once per list; user can add / edit / delete afterwards.
 const SEED_LOOKUPS = {
@@ -67,8 +69,8 @@ async function bumpSeq(s, c, no) {
 async function validate(s, c, body, id) {
   if (c === 'parties') {
     if (!body.name?.trim()) return 'Name is required';
-    if (body.type !== 'exporter') return 'Type must be exporter';
-    if ((await s.all(c)).some((p) => p.id !== id && p.type === body.type && same(p.name, body.name))) return `Exporter "${body.name}" already exists`;
+    if (!PARTY_TYPES.includes(body.type)) return 'Type must be exporter or loom';
+    if ((await s.all(c)).some((p) => p.id !== id && p.type === body.type && same(p.name, body.name))) return `${body.type === 'loom' ? 'Loom' : 'Exporter'} "${body.name}" already exists`;
   }
   if (c === 'lookups') {
     if (!body.kind || !body.value?.trim()) return 'Value is required';
@@ -81,10 +83,34 @@ async function validate(s, c, body, id) {
       if (!(q.items || []).some((x) => Number(x.qty) > 0)) return `Quality ${i + 1}: add at least one item with Qty`;
     }
   }
+  if (c === 'loom-towel-pos') {
+    if (!body.loomId) return 'Loom is required';
+    const ep = await s.get('towel-pos', body.exporterPoId);
+    if (!ep) return 'Select the Exporter Towel PO';
+    if (!body.qualities?.length) return 'Add at least one quality';
+    // each item: not more pcs than are left on its Exporter PO item (other Loom POs taken off)
+    const others = (await s.all(c)).filter((l) => l.id !== id && l.exporterPoId === ep.id && l.status !== 'cancelled');
+    const epItems = (ep.qualities || []).flatMap((q) => q.items || []);
+    for (const q of body.qualities) {
+      for (const it of q.items || []) {
+        const src = it.srcKey && epItems.find((x) => x.key === it.srcKey);
+        if (!src) continue;
+        const given = others.flatMap((l) => (l.qualities || []).flatMap((x) => x.items || [])).filter((x) => x.srcKey === it.srcKey)
+          .reduce((t, x) => t + Number(x.qty || 0), 0);
+        const left = Number(src.qty || 0) - given;
+        if (Number(it.qty || 0) > left + 1e-6) return `${it.item}: only ${Math.max(0, left)} Pcs left on ${ep.no}`;
+      }
+    }
+  }
   return null;
 }
 async function canDelete(s, c, id) {
-  if (c === 'parties' && (await s.all('towel-pos')).some((p) => p.exporterId === id)) return 'This party is used in a Towel PO, cannot delete';
+  if (c === 'parties') {
+    if ((await s.all('towel-pos')).some((p) => p.exporterId === id)) return 'This party is used in an Exporter Towel PO, cannot delete';
+    if ((await s.all('loom-towel-pos')).some((p) => p.loomId === id)) return 'This loom is used in a Loom Towel PO, cannot delete';
+  }
+  if (c === 'towel-pos' && (await s.all('loom-towel-pos')).some((p) => p.exporterPoId === id))
+    return 'Loom Towel PO exists against this Exporter Towel PO, delete that first';
   return null;
 }
 

@@ -4,24 +4,33 @@ import { api } from '../api.js';
 import { fmt, fmtDate, inWords, num } from '../util.js';
 import { qualityTitle, construction, qualityCalc, poTotals, lbsPerDozen, itemLbs, itemAmount, rateUnitShort, sizeText, YARNS, yarnText } from '../towelPo.js';
 
-const BASE = '/towel/po';
+const KINDS = {
+  exporter: { coll: 'towel-pos', base: '/towel/po', pf: 'exporterId', title: 'WEAVING PROGRAM — SALE AND PURCHASE' },
+  loom: { coll: 'loom-towel-pos', base: '/towel/loom-po', pf: 'loomId', title: 'LOOM WEAVING ORDER (LOOM TOWEL PO)' },
+};
 
 // Printed like the exporter's "Weaving Program — Sale and Purchase" sheet
-export default function TowelPoPrint() {
+export default function TowelPoPrint({ kind = 'exporter' }) {
+  const K = KINDS[kind];
+  const BASE = K.base;
   const { id } = useParams();
   const nav = useNavigate();
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    Promise.all([api.get('towel-pos', id), api.list('parties')])
-      .then(([po, parties]) => setData({ po, party: parties.find((p) => p.id === po.exporterId) || {} }))
+    Promise.all([api.get(K.coll, id), api.list('parties'), kind === 'loom' ? api.list('towel-pos') : []])
+      .then(([po, parties, epos]) => {
+        // Loom PO: the Exporter Towel PO it was made against, and its exporter
+        const epo = epos.find((e) => e.id === po.exporterPoId);
+        setData({ po, party: parties.find((p) => p.id === po[K.pf]) || {}, epo, exporter: epo ? parties.find((p) => p.id === epo.exporterId) : null });
+      })
       .catch((e) => setErr(e.message));
-  }, [id]);
+  }, [id, kind]);
 
   if (err) return <div className="notice err">{err}</div>;
   if (!data) return <p className="muted">Loading…</p>;
-  const { po, party } = data;
+  const { po, party, epo, exporter } = data;
   const t = poTotals(po);
 
   return (
@@ -34,14 +43,14 @@ export default function TowelPoPrint() {
 
       <div className="print-doc towel-print">
         <h1>AL HASAN TOWEL</h1>
-        <div className="doc-title">WEAVING PROGRAM — SALE AND PURCHASE</div>
+        <div className="doc-title">{K.title}</div>
 
         <table className="kv">
           <tbody>
             <tr><th>P.O. #:</th><td>{po.no}</td><th>ORDER DATE:</th><td>{fmtDate(po.date)}</td></tr>
             <tr><th>REF NO:</th><td>{po.refNo}</td><th>REV ORDER DATE:</th><td>{fmtDate(po.revDate)}</td></tr>
             <tr><th>M/S:</th><td>{party.name}</td><th>DELIVERY DATE:</th><td>{fmtDate(po.deliveryDate)}</td></tr>
-            <tr><th>G.S.T. # / NTN #:</th><td>{[party.strn, party.ntn].filter(Boolean).join(' / ')}</td><td colSpan={2}></td></tr>
+            <tr><th>G.S.T. # / NTN #:</th><td>{[party.strn, party.ntn].filter(Boolean).join(' / ')}</td>{epo ? <><th>EXPORTER PO #:</th><td>{epo.no}{exporter ? ` · ${exporter.name}` : ''}</td></> : <td colSpan={2}></td>}</tr>
           </tbody>
         </table>
 

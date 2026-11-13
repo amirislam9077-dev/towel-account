@@ -28,9 +28,17 @@ export default function Home() {
           <strong>Exporter Towel PO</strong>
           <span>Exporter order: quality, Pile / Ground / Weft / Fancy, items, Lbs and amount</span>
         </button>
+        <button className="tile big" onClick={() => nav('/towel/loom-po')}>
+          <strong>Loom Towel PO</strong>
+          <span>Weaving order to a loom against an Exporter Towel PO</span>
+        </button>
         <button className="tile big" onClick={() => nav('/towel/exporters')}>
           <strong>Exporters</strong>
           <span>Parties who give towel orders</span>
+        </button>
+        <button className="tile big" onClick={() => nav('/towel/looms')}>
+          <strong>Looms</strong>
+          <span>Loom / weaver parties</span>
         </button>
       </div>
     </>

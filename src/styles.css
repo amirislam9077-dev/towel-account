@@ -986,3 +986,10 @@ table.towel-items tfoot td, table.yarn-req tfoot td { font-weight: 700; backgrou
 .calc.gross-item { text-align: left; color: var(--primary-dark); }
 .gross-total { text-align: right; font-size: 13px; color: var(--primary-dark); }
 @media (max-width: 800px) { .grid.gross-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Loom Towel PO */
+.grid.loom-against { grid-template-columns: minmax(0, 1fr); margin-bottom: 8px; }
+.grid.loom-against select { font-weight: 600; }
+.left-hint { display: block; margin-top: 2px; font-size: 11px; color: var(--good); font-weight: 600; text-align: right; }
+.left-hint.over { color: var(--danger); }
+.grid.towel-shortage.loom { grid-template-columns: repeat(2, minmax(0, 220px)); }

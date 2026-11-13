@@ -167,3 +167,49 @@ export const blankTowelPo = () => ({
   remarks: '',
   qualities: [emptyQuality()],
 });
+
+// ---------- Loom Towel PO (made against an Exporter Towel PO) ----------
+// Pcs of each exporter item already given to looms: key `${exporterPoId}|${item key}` → pcs
+// (cancelled Loom POs and the Loom PO being edited are skipped)
+export function givenToLooms(loomPos, exceptId) {
+  const map = {};
+  for (const lp of loomPos || []) {
+    if (!lp.exporterPoId || lp.id === exceptId || lp.status === 'cancelled') continue;
+    for (const q of lp.qualities || []) {
+      for (const it of q.items || []) {
+        if (!it.srcKey) continue;
+        const k = `${lp.exporterPoId}|${it.srcKey}`;
+        map[k] = (map[k] || 0) + num(it.qty);
+      }
+    }
+  }
+  return map;
+}
+const poPcs = (p) => (p?.qualities || []).reduce((s, q) => s + (q.items || []).reduce((t, it) => t + num(it.qty), 0), 0);
+// Exporter PO pieces: ordered, already given to other looms, balance
+export function epoBalance(ep, loomPos, exceptId) {
+  const others = (loomPos || []).filter((l) => l.exporterPoId === ep.id && l.id !== exceptId && l.status !== 'cancelled');
+  const ordered = poPcs(ep);
+  const given = others.reduce((s, l) => s + poPcs(l), 0);
+  return { ordered, given, balance: ordered - given, others };
+}
+// Loom shortage only: stitching / dyeing / B grade happen after the loom
+export const LOOM_ONLY_SHORTAGE = { stitchingShortage: '0', dyeingShortage: '0', bGrade: '0' };
+// Copy an Exporter Towel PO into a Loom Towel PO: qualities, yarn, items with the pcs still left.
+// The rate is left empty — the loom's weaving rate is different from the exporter's rate.
+export function copyFromExporterPo(ep, loomPos, exceptId) {
+  const given = givenToLooms(loomPos, exceptId);
+  return {
+    exporterPoId: ep.id,
+    refNo: ep.refNo || '',
+    deliveryDate: ep.deliveryDate || '',
+    qualities: (ep.qualities || []).map((q) => ({
+      ...emptyQuality(), ...q, ...LOOM_ONLY_SHORTAGE, key: newKey(), srcKey: q.key,
+      items: (q.items || []).map((it) => ({
+        ...emptyItem(), ...it, key: newKey(), srcKey: it.key,
+        qty: String(Math.max(0, num(it.qty) - (given[`${ep.id}|${it.key}`] || 0))),
+        rate: '', rateUnit: it.rateUnit || 'lbs',
+      })),
+    })),
+  };
+}

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { fmt, fmtDate, inWords, num } from '../util.js';
 import {
   YARNS, SHORTAGE_FIELDS, RATE_UNITS, rateUnitShort, yarnText, qualityTitle, construction, lbsPerDozen, itemLbs, itemAmount,
   qualityCalc, poTotals, withYarnPct, emptyItem, emptyQuality, blankTowelPo, LBS_PER_BAG, GRAM_PER_LB,
+  givenToLooms, epoBalance, copyFromExporterPo, LOOM_ONLY_SHORTAGE,
 } from '../towelPo.js';
 import Notice from '../components/Notice.jsx';
 import LookupSelect from '../components/LookupSelect.jsx';
@@ -12,17 +13,43 @@ import NumberInput from '../components/NumberInput.jsx';
 import DateInput from '../components/DateInput.jsx';
 import { showToast } from '../components/Toast.jsx';
 
-const BASE = '/towel/po';
-const COLL = 'towel-pos';
 const STATUSES = ['open', 'closed', 'cancelled'];
 const DEFAULT_GST = '18';
 const gstPctFor = (type, current) => (type === 'with' ? (Number(current) > 0 ? current : DEFAULT_GST) : '0');
 
-export default function TowelPo() {
+// Exporter Towel PO and Loom Towel PO use this same page (like Al Hasan's Exporter PO / Loom PO); only these differ.
+export const KINDS = {
+  exporter: {
+    coll: 'towel-pos', base: '/towel/po', title: 'Exporter Towel PO', plural: 'Exporter Towel POs',
+    partyType: 'exporter', pf: 'exporterId', partyLabel: 'Exporter', partiesPath: '/towel/exporters',
+  },
+  loom: {
+    coll: 'loom-towel-pos', base: '/towel/loom-po', title: 'Loom Towel PO', plural: 'Loom Towel POs',
+    partyType: 'loom', pf: 'loomId', partyLabel: 'Loom', partiesPath: '/towel/looms',
+  },
+};
+
+export default function TowelPo({ kind = 'exporter' }) {
+  const K = KINDS[kind];
+  const isLoom = kind === 'loom';
+  const BASE = K.base;
+  const COLL = K.coll;
+  const PF = K.pf; // exporterId | loomId
+  // new PO: Exporter → With GST 18 %; Loom → Without GST, loom shortage only
+  const freshPo = () => {
+    const b = blankTowelPo();
+    return isLoom
+      ? { ...b, gstType: 'without', gstPct: '0', exporterPoId: '', qualities: b.qualities.map((q) => ({ ...q, ...LOOM_ONLY_SHORTAGE })) }
+      : b;
+  };
+  const newQuality = () => (isLoom ? { ...emptyQuality(), ...LOOM_ONLY_SHORTAGE } : emptyQuality());
   const { id } = useParams();
+  const [search] = useSearchParams();
   const nav = useNavigate();
   const [po, setPo] = useState(null);
   const [rows, setRows] = useState([]);
+  const [epos, setEpos] = useState([]); // Loom PO: Exporter Towel POs to choose from
+  const [expNames, setExpNames] = useState({}); // exporter names (Loom PO shows the exporter of its Exporter PO)
   const [parties, setParties] = useState([]);
   const [lookups, setLookups] = useState([]);
   const [msg, setMsg] = useState(null);
@@ -38,19 +65,31 @@ export default function TowelPo() {
   const [fStatus, setFStatus] = useState('');
 
   const loadList = () => api.list(COLL).then(setRows);
-  const loadParties = () => api.list('parties', '?type=exporter').then(setParties);
+  const loadParties = () => api.list('parties', `?type=${K.partyType}`).then(setParties);
   const loadLookups = () => api.list('lookups').then(setLookups);
 
   useEffect(() => {
-    Promise.all([loadList(), loadParties(), loadLookups()]).catch((e) => setMsg({ type: 'err', text: e.message }));
-  }, []);
+    setRows([]);
+    setParties([]);
+    Promise.all([
+      loadList(), loadParties(), loadLookups(),
+      isLoom ? api.list('towel-pos').then(setEpos) : null,
+      api.list('parties', '?type=exporter').then((ps) => setExpNames(Object.fromEntries(ps.map((p) => [p.id, p.name])))),
+    ]).catch((e) => setMsg({ type: 'err', text: e.message }));
+  }, [kind]);
 
+  const epoParam = search.get('epo') || '';
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const doc = id ? await api.get(COLL, id) : { ...blankTowelPo(), no: await api.nextNo(COLL) };
-        if (!doc.qualities?.length) doc.qualities = [emptyQuality()];
+        let doc = id ? await api.get(COLL, id) : { ...freshPo(), no: await api.nextNo(COLL) };
+        // Loom PO opened from an Exporter PO ("+L" in the Exporter list): copy its qualities and the pcs still left
+        if (isLoom && !id && epoParam) {
+          const ep = await api.get('towel-pos', epoParam).catch(() => null);
+          if (ep) doc = { ...doc, ...copyFromExporterPo(ep, await api.list(COLL)) };
+        }
+        if (!doc.qualities?.length) doc.qualities = [newQuality()];
         if (doc.gstType !== 'with') doc.gstPct = '0';
         alive && setPo(doc);
       } catch (e) {
@@ -58,17 +97,36 @@ export default function TowelPo() {
       }
     })();
     return () => { alive = false; };
-  }, [id]);
+  }, [id, kind, epoParam]);
 
-  // new PO with only one exporter saved: select it automatically
+  // new PO with only one party saved: select it automatically
   const autoSetFor = useRef('');
   useEffect(() => {
-    if (id || !po || po.exporterId || autoSetFor.current === po.no || parties.length !== 1) return;
+    if (id || !po || po[PF] || autoSetFor.current === po.no || parties.length !== 1) return;
     autoSetFor.current = po.no;
-    setPo((cur) => (cur && !cur.exporterId ? { ...cur, exporterId: parties[0].id } : cur));
+    setPo((cur) => (cur && !cur[PF] ? { ...cur, [PF]: parties[0].id } : cur));
   }, [id, po, parties]);
 
   const partyName = useMemo(() => Object.fromEntries(parties.map((p) => [p.id, p.name])), [parties]);
+  const eposById = useMemo(() => Object.fromEntries(epos.map((e) => [e.id, e])), [epos]);
+  // 3rd part of the Ref and list column: Exporter PO No (Loom PO) or the exporter's own PO / Ref No
+  const refMiddle = (p) => (isLoom ? eposById[p.exporterPoId]?.no || '' : p.refNo || '');
+  const refText = (p) => [p.no, partyName[p[PF]]?.split(' ')[0], refMiddle(p), isLoom ? p.refNo : ''].filter(Boolean).join(' | ');
+
+  // Loom PO: choose the Exporter Towel PO it is made against (copies qualities, yarn and items with the pcs left)
+  function chooseEpo(epoId) {
+    const ep = eposById[epoId];
+    if (!ep) return setPo({ ...po, exporterPoId: '' });
+    setPo({ ...po, ...copyFromExporterPo(ep, rows, id) });
+  }
+  // Loom PO: pcs left on each Exporter PO item (other Loom POs taken off)
+  const loomLeft = (srcKey) => {
+    const ep = eposById[po?.exporterPoId];
+    if (!ep || !srcKey) return null;
+    const orig = (ep.qualities || []).flatMap((q) => q.items || []).find((it) => it.key === srcKey);
+    if (!orig) return null;
+    return num(orig.qty) - (givenToLooms(rows, id)[`${ep.id}|${srcKey}`] || 0);
+  };
   const sortedParties = [...parties].sort((a, b) => a.name.localeCompare(b.name));
   const lk = (kind) =>
     lookups
@@ -101,7 +159,7 @@ export default function TowelPo() {
     if (items.length === 1) return setQual(qi, { items: [emptyItem()] });
     setQual(qi, { items: items.filter((_, k) => k !== ii) });
   };
-  const addQuality = () => setPo({ ...po, qualities: [...po.qualities, emptyQuality()] });
+  const addQuality = () => setPo({ ...po, qualities: [...po.qualities, newQuality()] });
   const removeQuality = (qi) => confirm(`Remove Quality ${qi + 1}?`) && setPo({ ...po, qualities: po.qualities.filter((_, j) => j !== qi) });
 
   async function save(e) {
@@ -112,7 +170,8 @@ export default function TowelPo() {
       setPopup({ title, text });
     };
     setSaveErr('');
-    if (!po.exporterId) return fail('Select the Exporter (M/S) at the top of the form');
+    if (!po[PF]) return fail(`Select the ${K.partyLabel} (M/S) at the top of the form`);
+    if (isLoom && !po.exporterPoId) return fail('Select the Exporter Towel PO this Loom PO is made against');
     for (const [qi, qa] of po.qualities.entries()) {
       const p = `Quality ${qi + 1}: `;
       const filled = qa.items.filter((it) => it.item || num(it.qty) || num(it.pcsWt));
@@ -122,7 +181,11 @@ export default function TowelPo() {
         if (!it.item) return fail(`${r}select the Item`);
         if (!(num(it.qty) > 0)) return fail(`${r}enter Qty (Pcs)`);
         if (!(num(it.pcsWt) > 0)) return fail(`${r}enter Pcs Wt (Gram)`);
-        if (!(num(it.rate) > 0)) return fail(`${r}enter the Rate`);
+        if (!(num(it.rate) > 0)) return fail(`${r}enter the ${isLoom ? 'Weaving Rate' : 'Rate'}`);
+        // Loom PO: not more pcs than are left on the Exporter PO item
+        const left = isLoom ? loomLeft(it.srcKey) : null;
+        if (left != null && num(it.qty) > Math.max(0, left) + 1e-6)
+          return fail(`${r}${it.item} — only ${fmt(Math.max(0, left))} Pcs left on ${eposById[po.exporterPoId]?.no}`, 'Quantity is more than the balance');
       }
       const pct = YARNS.reduce((s, [y]) => s + num(qa[y + 'Pct']), 0);
       if (Math.abs(pct - 100) > 0.01) return fail(`${p}Pile % + Ground % + Weft % + Fancy % must be 100 (now ${fmt(pct, 2)})`);
@@ -142,11 +205,11 @@ export default function TowelPo() {
       else await api.create(COLL, body);
       showToast({
         title: id ? 'Updated successfully' : 'Saved successfully',
-        text: `Exporter Towel PO ${po.no}${partyName[po.exporterId] ? ` for ${partyName[po.exporterId]}` : ''} has been ${id ? 'updated' : 'saved'}.`,
+        text: `${K.title} ${po.no}${partyName[po[PF]] ? ` for ${partyName[po[PF]]}` : ''} has been ${id ? 'updated' : 'saved'}.`,
       });
       await loadList();
-      if (id) nav(BASE);
-      else setPo({ ...blankTowelPo(), no: await api.nextNo(COLL) });
+      if (id || epoParam) nav(BASE);
+      else setPo({ ...freshPo(), no: await api.nextNo(COLL) });
       window.scrollTo({ top: 0 });
     } catch (err) {
       setMsg({ type: 'err', text: err.message });
@@ -157,10 +220,10 @@ export default function TowelPo() {
   }
 
   async function del(p) {
-    if (!confirm(`Delete Exporter Towel PO ${p.no}?`)) return;
+    if (!confirm(`Delete ${K.title} ${p.no}?`)) return;
     try {
       await api.remove(COLL, p.id);
-      showToast({ type: 'delete', title: 'Deleted', text: `Exporter Towel PO ${p.no} has been deleted.` });
+      showToast({ type: 'delete', title: 'Deleted', text: `${K.title} ${p.no} has been deleted.` });
       loadList();
       if (p.id === id) nav(BASE);
     } catch (e) {
@@ -170,12 +233,12 @@ export default function TowelPo() {
 
   // ---------- list ----------
   const list = rows
-    .filter((p) => !fParty || p.exporterId === fParty)
+    .filter((p) => !fParty || p[PF] === fParty)
     .filter((p) => !fStatus || p.status === fStatus)
     .filter((p) => (!from || p.date >= from) && (!to || p.date <= to))
     .filter((p) => {
       if (!q) return true;
-      const hay = [p.no, p.refNo, partyName[p.exporterId], ...(p.qualities || []).flatMap((x) => [qualityTitle(x), ...(x.items || []).map((i) => i.item)])]
+      const hay = [p.no, p.refNo, refMiddle(p), partyName[p[PF]], ...(p.qualities || []).flatMap((x) => [qualityTitle(x), ...(x.items || []).map((i) => i.item)])]
         .join(' ').toLowerCase();
       return hay.includes(q.toLowerCase());
     })
@@ -184,12 +247,12 @@ export default function TowelPo() {
   const sum = (k) => list.reduce((s, r) => s + r.t[k], 0);
 
   function exportExcel() {
-    const head = ['PO No', 'Date', 'Exporter', 'Ref No', 'Quality', 'Item', 'Size', 'Pcs Wt (Gm)', 'Lbs / Dz', 'Qty (Pcs)', 'Rate', 'Rate Unit', 'Total Lbs', 'Amount', 'Delivery Date', 'Status'];
+    const head = ['PO No', 'Date', K.partyLabel, isLoom ? 'Exporter PO' : 'Ref No', 'Quality', 'Item', 'Size', 'Pcs Wt (Gm)', 'Lbs / Dz', 'Qty (Pcs)', 'Rate', 'Rate Unit', 'Total Lbs', 'Amount', 'Delivery Date', 'Status'];
     const lines = [head];
     for (const p of list) {
       for (const qa of p.qualities || []) {
         for (const it of qa.items || []) {
-          lines.push([p.no, fmtDate(p.date), partyName[p.exporterId] || '', p.refNo || '', qualityTitle(qa), it.item,
+          lines.push([p.no, fmtDate(p.date), partyName[p[PF]] || '', refMiddle(p), qualityTitle(qa), it.item,
             `${it.width || ''} x ${it.length || ''}`, num(it.pcsWt), lbsPerDozen(it).toFixed(2), num(it.qty), num(it.rate), rateUnitShort(it.rateUnit),
             itemLbs(it).toFixed(2), itemAmount(it).toFixed(2), fmtDate(p.deliveryDate), p.status]);
         }
@@ -198,12 +261,12 @@ export default function TowelPo() {
     const csv = lines.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
-    a.download = `towel-pos-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `${COLL}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
 
-  const party = parties.find((p) => p.id === po?.exporterId);
+  const party = parties.find((p) => p.id === po?.[PF]);
   const t = po ? poTotals(po) : null;
 
   return (
@@ -224,21 +287,61 @@ export default function TowelPo() {
       {po && (
         <form onSubmit={save} className="no-print po-compact">
           <div className="page-head">
-            <h2>{id ? `Edit Exporter Towel PO ${po.no}` : 'New Exporter Towel PO'}</h2>
-            {id && <button type="button" onClick={() => nav(BASE)}>+ New instead</button>}
+            <h2>{id ? `Edit ${K.title} ${po.no}` : `New ${K.title}`}</h2>
+            {(id || epoParam) && <button type="button" onClick={() => nav(BASE)}>+ New instead</button>}
           </div>
 
           {/* ---- 1. PO details ---- */}
           <div className="po-section">
             <div className="sec-title">
               <span className="sec-no">1</span>PO Details
-              <span className="sec-ref" title="PO No | Exporter | Ref No">
-                <small>Ref</small> {[po.no, partyName[po.exporterId]?.split(" ")[0], po.refNo].filter(Boolean).join(' | ') || '—'}
+              <span className="sec-ref" title={`PO No | ${K.partyLabel} | ${isLoom ? 'Exporter PO No | ' : ''}Ref No`}>
+                <small>Ref</small> {refText(po) || '—'}
               </span>
             </div>
+            {isLoom && (
+              // Loom PO is made against an Exporter Towel PO: choosing it copies qualities, yarn and items (pcs still left)
+              <div className="grid loom-against">
+                <label>
+                  Against Exporter Towel PO *
+                  <select value={po.exporterPoId || ''} onChange={(e) => chooseEpo(e.target.value)}>
+                    <option value="">-- select Exporter Towel PO --</option>
+                    {epos
+                      .filter((e) => e.status !== 'cancelled' || e.id === po.exporterPoId)
+                      .map((e) => ({ e, bal: epoBalance(e, rows, id).balance }))
+                      .map((x) => ({ ...x, done: x.bal <= 0 && x.e.id !== po.exporterPoId }))
+                      // open orders first (newest on top), fully given orders at the bottom
+                      .sort((a, b) => a.done - b.done || (b.e.no || '').localeCompare(a.e.no || ''))
+                      .map(({ e, bal, done }) => (
+                        <option key={e.id} value={e.id} disabled={done}>
+                          {`${done ? '✔ COMPLETED · ' : ''}${e.no} · ${expNames[e.exporterId] || ''}${e.refNo ? ` · ${e.refNo}` : ''} · ${(e.qualities || []).map(qualityTitle).join(' ; ')} — ${done ? 'all pcs given' : `Balance ${fmt(bal)} Pcs`}`}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </div>
+            )}
+            {isLoom && eposById[po.exporterPoId] && (() => {
+              const ep = eposById[po.exporterPoId];
+              const b = epoBalance(ep, rows, id);
+              const mine = poTotals(po).pcs;
+              const after = b.balance - mine;
+              return (
+                <div className={`epo-balance ${after < 0 ? 'over' : after === 0 ? 'done' : ''}`}>
+                  <span><b>{ep.no}</b> ordered <b>{fmt(b.ordered)}</b> Pcs</span>
+                  <span>
+                    Already given <b>{fmt(b.given)}</b>
+                    {b.others.length > 0 && <small> ({b.others.map((l) => l.no).join(', ')})</small>}
+                  </span>
+                  <span className="bal">Balance <b>{fmt(b.balance)}</b> Pcs</span>
+                  <span>This Loom PO <b>{fmt(mine)}</b></span>
+                  <span className="after">{after < 0 ? <>Over by <b>{fmt(-after)}</b> Pcs</> : <>Left after this <b>{fmt(after)}</b> Pcs</>}</span>
+                </div>
+              );
+            })()}
             <div className="grid head-grid towel-head">
               <label>
-                Exporter Towel PO No *
+                {K.title} No *
                 <input value={po.no} disabled />
               </label>
               <label>
@@ -246,14 +349,14 @@ export default function TowelPo() {
                 <DateInput value={po.date} onChange={(v) => setPo({ ...po, date: v })} required />
               </label>
               <label className="span2">
-                M/S (Exporter) *
+                M/S ({K.partyLabel}) *
                 <LookupSelect
-                  label="Exporter name"
+                  label={`${K.partyLabel} name`}
                   placeholder="-- select --"
-                  value={po.exporterId}
-                  onChange={(v) => setPo({ ...po, exporterId: v })}
+                  value={po[PF]}
+                  onChange={(v) => setPo({ ...po, [PF]: v })}
                   options={sortedParties.map((p) => ({ id: p.id, value: p.id, label: p.name }))}
-                  onAdd={async (name) => { const p = await api.create('parties', { type: 'exporter', name }); await loadParties(); return p.id; }}
+                  onAdd={async (name) => { const p = await api.create('parties', { type: K.partyType, name }); await loadParties(); return p.id; }}
                   onEdit={async (o, name) => { const p = parties.find((x) => x.id === o.id); await api.update('parties', o.id, { ...p, name }); await loadParties(); return o.id; }}
                   onDelete={async (o) => { await api.remove('parties', o.id); await loadParties(); }}
                   required
@@ -296,7 +399,7 @@ export default function TowelPo() {
                 {party.ntn && <span><b>NTN #:</b> {party.ntn}</span>}
                 {party.phone && <span><b>Phone #:</b> {party.phone}</span>}
                 {!party.address && !party.strn && !party.ntn && !party.phone && (
-                  <span className="muted">No address / GST / NTN saved for this exporter — <a href="/towel/exporters">add in Exporters</a></span>
+                  <span className="muted">No address / GST / NTN saved for this {K.partyLabel.toLowerCase()} — <a href={K.partiesPath}>add in {K.partyLabel}s</a></span>
                 )}
               </div>
             )}
@@ -430,7 +533,7 @@ export default function TowelPo() {
                           <th className="c-n">Pcs Wt (Gm)</th>
                           <th className="c-n num">Lbs / Dz</th>
                           <th className="c-n">Qty (Pcs)</th>
-                          <th className="c-n">Rate / Lbs</th>
+                          <th className="c-n">{isLoom ? 'Weaving Rate' : 'Rate / Lbs'}</th>
                           <th className="c-unit">Rate Unit</th>
                           <th className="c-n num">Total Lbs</th>
                           <th className="c-n num">Amount</th>
@@ -453,7 +556,13 @@ export default function TowelPo() {
                             </td>
                             <td><NumberInput value={it.pcsWt} onChange={(v) => setItem(qi, ii, { pcsWt: v })} unit="Gm" placeholder="0" /></td>
                             <td className="num calc-cell">{num(it.pcsWt) ? fmt(lbsPerDozen(it), 2) : '—'}</td>
-                            <td><NumberInput value={it.qty} onChange={(v) => setItem(qi, ii, { qty: v })} unit="Pcs" placeholder="0" /></td>
+                            <td>
+                              <NumberInput value={it.qty} onChange={(v) => setItem(qi, ii, { qty: v })} unit="Pcs" placeholder="0" />
+                              {isLoom && loomLeft(it.srcKey) != null && (
+                                // Loom PO: pcs still left on this Exporter PO item
+                                <small className={`left-hint ${num(it.qty) > loomLeft(it.srcKey) ? 'over' : ''}`}>Balance {fmt(Math.max(0, loomLeft(it.srcKey)))}</small>
+                              )}
+                            </td>
                             <td><NumberInput value={it.rate} onChange={(v) => setItem(qi, ii, { rate: v })} placeholder="0.00" decimals={2} /></td>
                             <td className="c-unit">
                               <select value={it.rateUnit || 'lbs'} onChange={(e) => setItem(qi, ii, { rateUnit: e.target.value })}>
@@ -492,8 +601,9 @@ export default function TowelPo() {
                     <span>Shortage &amp; Yarn Requirement</span>
                     <span className="sec-ref"><small>NET</small> {fmt(c.netLbs, 2)} Lbs · {fmt(c.netBags, 2)} Bags</span>
                   </div>
-                  <div className="grid shortage-grid towel-shortage">
-                    {SHORTAGE_FIELDS.map(([k, label]) => (
+                  <div className={`grid shortage-grid towel-shortage ${isLoom ? 'loom' : ''}`}>
+                    {/* Loom PO: only the loom shortage (stitching / dyeing / B grade come after the loom) */}
+                    {SHORTAGE_FIELDS.filter(([k]) => !isLoom || k === 'loomShortage').map(([k, label]) => (
                       <label key={k}>
                         {label}
                         <NumberInput value={qa[k] ?? ''} onChange={(v) => setQual(qi, { [k]: v })} unit="%" placeholder="0" />
@@ -614,8 +724,8 @@ export default function TowelPo() {
               </div>
             )}
             <div className="sumbar-actions">
-              <button className="save-btn" type="submit" disabled={saving}>{saving ? 'Saving…' : id ? 'Update Exporter Towel PO' : 'Save Exporter Towel PO'}</button>
-              <button type="button" onClick={() => (id ? nav(BASE) : setPo({ ...blankTowelPo(), no: po.no }))}>Cancel</button>
+              <button className="save-btn" type="submit" disabled={saving}>{saving ? 'Saving…' : id ? `Update ${K.title}` : `Save ${K.title}`}</button>
+              <button type="button" onClick={() => (id || epoParam ? nav(BASE) : setPo({ ...freshPo(), no: po.no }))}>Cancel</button>
             </div>
           </div>
           <div className="words">{inWords(t.total)}</div>
@@ -624,18 +734,18 @@ export default function TowelPo() {
 
       {/* ---- List ---- */}
       <div className="page-head list-head">
-        <h2>All Exporter Towel POs</h2>
+        <h2>All {K.plural}</h2>
         <div className="row-actions big no-print">
           <button className="btn-print" onClick={() => window.print()}>Print</button>
           <button className="btn-excel" onClick={exportExcel}>Excel</button>
         </div>
       </div>
       <div className="toolbar no-print">
-        <input type="search" placeholder="Search PO, ref, exporter, quality, item…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input type="search" placeholder={`Search PO, ref, ${K.partyLabel.toLowerCase()}, quality, item…`} value={q} onChange={(e) => setQ(e.target.value)} />
         <label>From <DateInput value={from} onChange={setFrom} /></label>
         <label>To <DateInput value={to} onChange={setTo} /></label>
         <select value={fParty} onChange={(e) => setFParty(e.target.value)}>
-          <option value="">All exporters</option>
+          <option value="">All {K.partyLabel.toLowerCase()}s</option>
           {sortedParties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
@@ -645,7 +755,7 @@ export default function TowelPo() {
       </div>
 
       <div className="stat-chips">
-        <div className="chip"><small>Exporter Towel POs</small><b>{list.length}</b></div>
+        <div className="chip"><small>{K.plural}</small><b>{list.length}</b></div>
         <div className="chip"><small>Total Qty (Pcs)</small><b>{fmt(sum('pcs'))}</b></div>
         <div className="chip"><small>Total Lbs</small><b>{fmt(sum('lbs'), 2)}</b></div>
         <div className="chip net"><small>Net Bags Required</small><b>{fmt(sum('netBags'), 2)}</b></div>
@@ -660,8 +770,8 @@ export default function TowelPo() {
             <tr>
               <th>PO No</th>
               <th>Date</th>
-              <th>Exporter</th>
-              <th>Exporter PO / Ref</th>
+              <th>{K.partyLabel}</th>
+              <th>{isLoom ? 'Exporter Towel PO' : 'Exporter PO / Ref'}</th>
               <th>Quality · Items</th>
               <th className="num">Qty (Pcs)</th>
               <th className="num">Total Lbs</th>
@@ -678,8 +788,13 @@ export default function TowelPo() {
                 <tr key={p.id} className={p.id === id ? 'editing' : ''}>
                   <td className="strong">{p.no}{p.status !== 'open' && <div className="qty-2nd">{p.status}</div>}</td>
                   <td>{fmtDate(p.date)}</td>
-                  <td>{partyName[p.exporterId] || '—'}</td>
-                  <td>{p.refNo || '—'}</td>
+                  <td>{partyName[p[PF]] || '—'}</td>
+                  <td>
+                    {refMiddle(p) || '—'}
+                    {isLoom && eposById[p.exporterPoId] && (
+                      <div className="qty-2nd">{expNames[eposById[p.exporterPoId].exporterId] || ''}{p.refNo ? ` · ${p.refNo}` : ''}</div>
+                    )}
+                  </td>
                   <td className="wrap" style={{ fontSize: 12.5 }}>
                     {qs.map((qa) => (
                       <div key={qa.key}>
@@ -697,6 +812,9 @@ export default function TowelPo() {
                     <div className="mini-actions">
                       <button title="Edit" onClick={() => { nav(`${BASE}/${p.id}/edit`); window.scrollTo({ top: 0 }); }}>✎</button>
                       <button title="Print" onClick={() => nav(`${BASE}/${p.id}/print`)}>🖨</button>
+                      {!isLoom && (
+                        <button title="New Loom Towel PO against this Exporter Towel PO" onClick={() => { nav(`/towel/loom-po?epo=${p.id}`); window.scrollTo({ top: 0 }); }}>+L</button>
+                      )}
                       <button title="Delete" className="danger" onClick={() => del(p)}>🗑</button>
                     </div>
                   </td>
@@ -704,7 +822,7 @@ export default function TowelPo() {
               );
             })}
             {!list.length && (
-              <tr><td colSpan={11} className="empty">No Exporter Towel PO found</td></tr>
+              <tr><td colSpan={11} className="empty">No {K.title} found</td></tr>
             )}
           </tbody>
           {list.length > 0 && (
