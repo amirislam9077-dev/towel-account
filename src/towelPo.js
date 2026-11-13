@@ -149,14 +149,20 @@ export const emptyQuality = () => ({
   items: [emptyItem()],
 });
 
+// today's date on this computer (not UTC, so early morning in Pakistan is not yesterday)
+const localToday = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// New PO: PO Date, Rev Order Date and Delivery Date all start at today (can be changed)
 export const blankTowelPo = () => ({
   no: '',
-  date: new Date().toISOString().slice(0, 10),
+  date: localToday(),
   exporterId: '',
-  buyerName: '',
   refNo: '', // exporter's PO / ETL Ref No
-  revDate: '', // revised order date
-  deliveryDate: '',
+  revDate: localToday(), // revised order date
+  deliveryDate: localToday(),
   gstType: 'without',
   gstPct: '0',
   status: 'open',

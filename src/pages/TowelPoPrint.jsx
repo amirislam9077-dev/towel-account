@@ -41,7 +41,7 @@ export default function TowelPoPrint() {
             <tr><th>P.O. #:</th><td>{po.no}</td><th>ORDER DATE:</th><td>{fmtDate(po.date)}</td></tr>
             <tr><th>REF NO:</th><td>{po.refNo}</td><th>REV ORDER DATE:</th><td>{fmtDate(po.revDate)}</td></tr>
             <tr><th>M/S:</th><td>{party.name}</td><th>DELIVERY DATE:</th><td>{fmtDate(po.deliveryDate)}</td></tr>
-            <tr><th>BUYER NAME:</th><td>{po.buyerName}</td><th>G.S.T. # / NTN #:</th><td>{[party.strn, party.ntn].filter(Boolean).join(' / ')}</td></tr>
+            <tr><th>G.S.T. # / NTN #:</th><td>{[party.strn, party.ntn].filter(Boolean).join(' / ')}</td><td colSpan={2}></td></tr>
           </tbody>
         </table>
 

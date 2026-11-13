@@ -175,7 +175,7 @@ export default function TowelPo() {
     .filter((p) => (!from || p.date >= from) && (!to || p.date <= to))
     .filter((p) => {
       if (!q) return true;
-      const hay = [p.no, p.refNo, p.buyerName, partyName[p.exporterId], ...(p.qualities || []).flatMap((x) => [qualityTitle(x), ...(x.items || []).map((i) => i.item)])]
+      const hay = [p.no, p.refNo, partyName[p.exporterId], ...(p.qualities || []).flatMap((x) => [qualityTitle(x), ...(x.items || []).map((i) => i.item)])]
         .join(' ').toLowerCase();
       return hay.includes(q.toLowerCase());
     })
@@ -184,12 +184,12 @@ export default function TowelPo() {
   const sum = (k) => list.reduce((s, r) => s + r.t[k], 0);
 
   function exportExcel() {
-    const head = ['PO No', 'Date', 'Exporter', 'Buyer', 'Ref No', 'Quality', 'Item', 'Size', 'Pcs Wt (Gm)', 'Lbs / Dz', 'Qty (Pcs)', 'Rate', 'Rate Unit', 'Total Lbs', 'Amount', 'Delivery Date', 'Status'];
+    const head = ['PO No', 'Date', 'Exporter', 'Ref No', 'Quality', 'Item', 'Size', 'Pcs Wt (Gm)', 'Lbs / Dz', 'Qty (Pcs)', 'Rate', 'Rate Unit', 'Total Lbs', 'Amount', 'Delivery Date', 'Status'];
     const lines = [head];
     for (const p of list) {
       for (const qa of p.qualities || []) {
         for (const it of qa.items || []) {
-          lines.push([p.no, fmtDate(p.date), partyName[p.exporterId] || '', p.buyerName || '', p.refNo || '', qualityTitle(qa), it.item,
+          lines.push([p.no, fmtDate(p.date), partyName[p.exporterId] || '', p.refNo || '', qualityTitle(qa), it.item,
             `${it.width || ''} x ${it.length || ''}`, num(it.pcsWt), lbsPerDozen(it).toFixed(2), num(it.qty), num(it.rate), rateUnitShort(it.rateUnit),
             itemLbs(it).toFixed(2), itemAmount(it).toFixed(2), fmtDate(p.deliveryDate), p.status]);
         }
@@ -232,8 +232,8 @@ export default function TowelPo() {
           <div className="po-section">
             <div className="sec-title">
               <span className="sec-no">1</span>PO Details
-              <span className="sec-ref" title="PO No | Exporter | Buyer | Ref No">
-                <small>Ref</small> {[po.no, partyName[po.exporterId]?.split(' ')[0], po.buyerName, po.refNo].filter(Boolean).join(' | ') || '—'}
+              <span className="sec-ref" title="PO No | Exporter | Ref No">
+                <small>Ref</small> {[po.no, partyName[po.exporterId]?.split(" ")[0], po.refNo].filter(Boolean).join(' | ') || '—'}
               </span>
             </div>
             <div className="grid head-grid">
@@ -258,10 +258,6 @@ export default function TowelPo() {
                   onDelete={async (o) => { await api.remove('parties', o.id); await loadParties(); }}
                   required
                 />
-              </label>
-              <label className="span2">
-                Buyer Name
-                <LookupSelect value={po.buyerName} onChange={(v) => setPo({ ...po, buyerName: v })} {...bind('buyer', 'buyer (e.g. Katzkon Brothers)')} />
               </label>
               <label>
                 Exporter PO / Ref No
@@ -583,7 +579,7 @@ export default function TowelPo() {
         </div>
       </div>
       <div className="toolbar no-print">
-        <input type="search" placeholder="Search PO, buyer, ref, exporter, quality, item…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input type="search" placeholder="Search PO, ref, exporter, quality, item…" value={q} onChange={(e) => setQ(e.target.value)} />
         <label>From <DateInput value={from} onChange={setFrom} /></label>
         <label>To <DateInput value={to} onChange={setTo} /></label>
         <select value={fParty} onChange={(e) => setFParty(e.target.value)}>
@@ -613,7 +609,7 @@ export default function TowelPo() {
               <th>PO No</th>
               <th>Date</th>
               <th>Exporter</th>
-              <th>Buyer · Ref</th>
+              <th>Exporter PO / Ref</th>
               <th>Quality · Items</th>
               <th className="num">Qty (Pcs)</th>
               <th className="num">Total Lbs</th>
@@ -631,7 +627,7 @@ export default function TowelPo() {
                   <td className="strong">{p.no}{p.status !== 'open' && <div className="qty-2nd">{p.status}</div>}</td>
                   <td>{fmtDate(p.date)}</td>
                   <td>{partyName[p.exporterId] || '—'}</td>
-                  <td>{p.buyerName || '—'}{p.refNo && <div className="qty-2nd">{p.refNo}</div>}</td>
+                  <td>{p.refNo || '—'}</td>
                   <td className="wrap" style={{ fontSize: 12.5 }}>
                     {qs.map((qa) => (
                       <div key={qa.key}>
