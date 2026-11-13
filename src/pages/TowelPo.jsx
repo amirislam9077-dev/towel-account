@@ -405,7 +405,7 @@ export default function TowelPo() {
                 <div className="po-section">
                   <div className="sec-title">
                     <span className="sec-no">3</span>Items (Size, Weight, Qty &amp; Rate)
-                    <span className="sec-ref" title="Item names · total pcs · total lbs · amount">
+                    <span className="sec-ref" title="Items · total pcs · total lbs">
                       <small>TOTAL</small>{' '}
                       {/* each item: name, size W x L and Lbs per dozen, e.g. "Hand Towel 16 x 27 (2.99 Lbs/Dz), Wash Cloth 13 x 13 (0.79 Lbs/Dz)" */}
                       {qa.items
@@ -417,7 +417,7 @@ export default function TowelPo() {
                         ].filter(Boolean).join(' '))
                         .join(', ')}
                       {qa.items.some((it) => it.item) ? ' · ' : ''}
-                      {fmt(c.pcs)} Pcs · {fmt(c.lbs, 2)} Lbs · Rs {fmt(c.amount, 2)}
+                      {fmt(c.pcs)} Pcs · {fmt(c.lbs, 2)} Lbs
                     </span>
                   </div>
                   <div className="table-wrap towel-items-wrap">
