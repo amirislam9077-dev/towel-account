@@ -11,6 +11,8 @@ import { CHALLAN_TYPES, challanType, yarnBalance, challanBags, yarnName, slotKey
 
 // "Bath Mat 23 X 12 · 113 Gm"
 const itemText = (it) => [it.item, sizeText(it), num(it.pcsWt) ? `· ${fmt(it.pcsWt)} Gm` : ''].filter(Boolean).join(' ');
+// total pcs of a PO
+const pcsOf = (po) => (po?.qualities || []).reduce((t, q) => t + (q.items || []).reduce((u, it) => u + num(it.qty), 0), 0);
 // all items of a PO for the dropdown
 const itemsText = (po) => [...new Set((po.qualities || []).flatMap((q) => (q.items || []).filter((it) => it.item).map(itemText)))].join(', ');
 import Notice from '../components/Notice.jsx';
@@ -283,6 +285,27 @@ export default function YarnChallan({ mode = 'receive' }) {
                   </div>
                 ))}
               </div>
+              {/* order pcs, and pcs given to looms (exporter PO) */}
+              {(() => {
+                const ordered = pcsOf(po);
+                if (isIssue) {
+                  const ep = eById[po.exporterPoId];
+                  return (
+                    <>
+                      <div><small>Loom Order</small><b>{fmt(ordered)} Pcs</b></div>
+                      {ep && <div><small>Exporter Order ({ep.no})</small><b>{fmt(pcsOf(ep))} Pcs</b></div>}
+                    </>
+                  );
+                }
+                const given = lpos.filter((l) => l.exporterPoId === po.id && l.status !== 'cancelled').reduce((t, l) => t + pcsOf(l), 0);
+                return (
+                  <>
+                    <div><small>Total Order</small><b>{fmt(ordered)} Pcs</b></div>
+                    <div><small>Delivered to Looms</small><b className="good">{fmt(given)} Pcs</b></div>
+                    <div><small>Order Balance</small><b className="warn">{fmt(ordered - given)} Pcs</b></div>
+                  </>
+                );
+              })()}
               <div><small>Total Bags needed</small><b>{fmt(bal.need)}</b></div>
               <div><small>Already {T.past}</small><b>{fmt(bal.done)}</b></div>
               <div className={`hl bal-big ${bal.balance <= 0 ? 'zero' : ''}`}><small>Balance Bags</small><b>{fmt(bal.balance)}</b></div>
