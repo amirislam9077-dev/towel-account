@@ -267,6 +267,9 @@ export default function YarnChallan({ mode = 'receive' }) {
                 {done ? '✔ COMPLETED · ' : ''}{p.no} · {partyOf(p)}
                 {isIssue ? ` · ${eById[p.exporterPoId]?.no || ''}` : p.refNo ? ` · Ref ${p.refNo}` : ''}
                 {itemsText(p) ? ` · ${itemsText(p)}` : ''}
+                {/* order pcs; exporter PO: pcs already given to looms */}
+                {isIssue ? ` · Order ${fmt(pcsOf(p))} Pcs`
+                  : ` · Order ${fmt(pcsOf(p))} Pcs · Given to Looms ${fmt(lpos.filter((l) => l.exporterPoId === p.id && l.status !== 'cancelled').reduce((t, l) => t + pcsOf(l), 0))} Pcs`}
                 {` — Balance ${fmt(b.balance)} of ${fmt(b.need)} Bags`}
               </option>
             ))}
