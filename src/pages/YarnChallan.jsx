@@ -7,7 +7,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { fmt, fmtDate, num, today } from '../util.js';
-import { CHALLAN_TYPES, challanType, yarnBalance, challanBags, yarnName, slotKey } from '../towelPo.js';
+import { CHALLAN_TYPES, challanType, yarnBalance, challanBags, yarnName, slotKey, sizeText, qualityTitle } from '../towelPo.js';
+
+// "Bath Mat 23 X 12 · 113 Gm"
+const itemText = (it) => [it.item, sizeText(it), num(it.pcsWt) ? `· ${fmt(it.pcsWt)} Gm` : ''].filter(Boolean).join(' ');
+// all items of a PO for the dropdown
+const itemsText = (po) => [...new Set((po.qualities || []).flatMap((q) => (q.items || []).filter((it) => it.item).map(itemText)))].join(', ');
 import Notice from '../components/Notice.jsx';
 import LookupSelect from '../components/LookupSelect.jsx';
 import NumberInput from '../components/NumberInput.jsx';
@@ -259,6 +264,7 @@ export default function YarnChallan({ mode = 'receive' }) {
               <option key={p.id} value={p.id} disabled={done} style={done ? { color: '#9aa7b0' } : { color: '#0b5d1e', fontWeight: 600 }}>
                 {done ? '✔ COMPLETED · ' : ''}{p.no} · {partyOf(p)}
                 {isIssue ? ` · ${eById[p.exporterPoId]?.no || ''}` : p.refNo ? ` · Ref ${p.refNo}` : ''}
+                {itemsText(p) ? ` · ${itemsText(p)}` : ''}
                 {` — Balance ${fmt(b.balance)} of ${fmt(b.need)} Bags`}
               </option>
             ))}
@@ -267,6 +273,16 @@ export default function YarnChallan({ mode = 'receive' }) {
             <div className="po-card">
               <div><small>{isIssue ? 'Loom' : 'Exporter'}</small><b>{partyOf(po)}</b></div>
               <div><small>{T.poLabel}</small><b>{po.no}{isIssue && eById[po.exporterPoId] ? ` · ${eById[po.exporterPoId].no} (${name[eById[po.exporterPoId].exporterId] || ''})` : po.refNo ? ` · Ref ${po.refNo}` : ''}</b></div>
+              <div className="grow"><small>Quality · Items (Size · Weight · Pcs)</small>
+                {(po.qualities || []).map((q, qi) => (
+                  <div key={q.key || qi} className="po-card-q">
+                    <b>Q{qi + 1}</b> {qualityTitle(q)}
+                    {(q.items || []).filter((it) => it.item || num(it.qty)).map((it, i) => (
+                      <span key={i} className="q-item-chip">{itemText(it)} · {fmt(it.qty)} Pcs</span>
+                    ))}
+                  </div>
+                ))}
+              </div>
               <div><small>Total Bags needed</small><b>{fmt(bal.need)}</b></div>
               <div><small>Already {T.past}</small><b>{fmt(bal.done)}</b></div>
               <div className={`hl bal-big ${bal.balance <= 0 ? 'zero' : ''}`}><small>Balance Bags</small><b>{fmt(bal.balance)}</b></div>

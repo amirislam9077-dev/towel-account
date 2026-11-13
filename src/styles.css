@@ -1219,3 +1219,7 @@ th { background: #f3f4fa; }
 .mod.span2 .mod-link, .mod.span2 .mod-link:first-of-type { border-top: 1px solid #eef0f6; border-right: 1px solid #eef0f6; }
 @media (max-width: 1100px) { .mods { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mod.span2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .mods, .mod.span2 { grid-template-columns: 1fr; } }
+.po-card-q { font-size: 13px; margin-top: 2px; }
+.q-item-chip { display: inline-block; margin: 2px 0 0 8px; padding: 1px 8px; border-radius: 999px; background: #eef0fd; color: var(--primary-dark); font-size: 12px; font-weight: 600; }
+.po-card .po-card-q { display: block; }
+.po-card .q-item-chip { display: inline-block; }
