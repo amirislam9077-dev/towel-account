@@ -1205,3 +1205,6 @@ th { background: #f3f4fa; }
 .po-box tr.q-start td { border-top: 2px solid var(--border); }
 
 .mode-banner { display: flex; margin-bottom: 10px; cursor: default; }
+
+/* dashboard links: show the full name (wrap to 2 lines if needed) */
+.dash .mod-txt strong { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
