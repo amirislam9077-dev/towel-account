@@ -168,7 +168,6 @@ export const REPORTS = {
     cols: [
       T('Loom', (r) => r.party, { strong: true }), T('LPO No', (r) => r.nos.sort().join(', '), { wrap: true }), T('Exporter POs', (r) => uniq(r.epos).join(', '), { wrap: true }),
       N('LPOs', (r) => r.count), N('Pcs', (r) => r.pcs, 0, { chip: 'net' }), N('Lbs', (r) => r.lbs, 2, { chip: '' }), N('Net Bags', (r) => r.netBags, 2, { chip: 'base' }),
-      N('Avg Rate / Lbs', (r) => r.rate, 2, { total: false }), N('Weaving Amount', (r) => r.amount, 2), N('Total', (r) => r.total, 2, { chip: 'total' }),
     ],
   },
 
