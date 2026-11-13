@@ -286,6 +286,13 @@ export const REPORTS = {
   'yc-register': {
     group: 'Yarn Reports', title: 'Yarn Challan Register', sub: 'Every yarn receive / issue challan line: which yarn, for Pile / Ground / Weft / Fancy, bags',
     src: 'yc',
+    // extra filters (dropdowns filled from the rows)
+    picks: [
+      { key: 'type', label: 'Receive + Issue', get: (r) => r.type },
+      { key: 'yarn', label: 'All yarn counts', get: (r) => r.yarn },
+      { key: 'brand', label: 'All brands', get: (r) => r.brand },
+      { key: 'for', label: 'Pile / Ground / Weft / Fancy', get: (r) => r.for },
+    ],
     rows: ({ ycs, name, epoOf, lpoOf }) => ycs.flatMap((c) => {
       const t = challanType(c);
       const po = t === 'issue' ? lpoOf(c.loomPoId) : epoOf(c.exporterPoId);
@@ -546,13 +553,14 @@ export default function Reports() {
   const [q, setQ] = useState('');
   const [sort, setSort] = useState({ i: -1, dir: 1 });
   const [flat, setFlat] = useState(false); // grouped reports: show the plain item-wise table instead
+  const [picks, setPicks] = useState({}); // extra filters of a report (R.picks): { key: value }
 
   useEffect(() => {
     Promise.all([api.list('towel-pos'), api.list('loom-towel-pos'), api.list('parties'), api.list('yarn-challans')])
       .then(([epos, lpos, parties, ycs]) => setData({ epos, lpos, parties, ycs }))
       .catch((e) => setErr(e.message));
   }, []);
-  useEffect(() => { setFParty(''); setSort({ i: -1, dir: 1 }); setQ(''); setFlat(false); }, [type]);
+  useEffect(() => { setFParty(''); setSort({ i: -1, dir: 1 }); setQ(''); setFlat(false); setPicks({}); }, [type]);
 
   const src = R?.src === 'basis' ? basis : R?.src;
   const partyType = src === 'lpo' ? 'loom' : 'exporter';
@@ -577,6 +585,10 @@ export default function Reports() {
     const ycs = (data.ycs || []).filter((c) => (!from || (c.date || '') >= from) && (!to || (c.date || '') <= to) && (!fParty || ycParty(c) === fParty));
     const ctx = { epos, lpos, allLpos: data.lpos, ycs, allYcs: data.ycs || [], name, epoOf, lpoOf, basis, basisPos: (basis === 'lpo' ? lpos : epos).slice().sort(byNo) };
     let rows = R.rows(ctx).map((r) => (r.exporterId && !r.party ? { ...r, party: name(r.exporterId) } : r));
+    // dropdown values of the extra filters, then apply them
+    const pickOpts = Object.fromEntries((R.picks || []).map((f) => [f.key,
+      uniq(rows.map((r) => String(f.get(r) || '').trim())).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))]));
+    for (const f of R.picks || []) if (picks[f.key]) rows = rows.filter((r) => String(f.get(r) || '').trim() === picks[f.key]);
     if (q.trim()) {
       const s = q.trim().toLowerCase();
       rows = rows.filter((r) => R.cols.some((c) => String(c.get(r) ?? '').toLowerCase().includes(s)));
@@ -595,8 +607,8 @@ export default function Reports() {
       const s = q.trim().toLowerCase();
       grp = grp.filter((g) => JSON.stringify(g).toLowerCase().includes(s));
     }
-    return { rows, parties, grp };
-  }, [data, R, src, from, to, fParty, fStatus, basis, q, sort, partyType]);
+    return { rows, parties, grp, pickOpts };
+  }, [data, R, src, from, to, fParty, fStatus, basis, q, sort, partyType, picks]);
 
   if (!R) return <Navigate to="/towel/reports/epo-register" replace />;
 
@@ -648,13 +660,19 @@ export default function Reports() {
             <option value="">{src === 'yc' ? 'All parties' : `All ${partyType === 'loom' ? 'looms' : 'exporters'}`}</option>
             {(view?.parties || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
+          {(R.picks || []).map((f) => (
+            <select key={f.key} value={picks[f.key] || ''} onChange={(e) => setPicks({ ...picks, [f.key]: e.target.value })}>
+              <option value="">{f.label}</option>
+              {(view?.pickOpts?.[f.key] || []).map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          ))}
           {src !== 'yc' && (
             <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
               {STATUS_OPTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
           )}
-          {(from || to || fParty || q || fStatus !== 'active') && (
-            <button onClick={() => { setFrom(''); setTo(''); setFParty(''); setQ(''); setFStatus('active'); }}>Clear</button>
+          {(from || to || fParty || q || fStatus !== 'active' || Object.values(picks).some(Boolean)) && (
+            <button onClick={() => { setFrom(''); setTo(''); setFParty(''); setQ(''); setFStatus('active'); setPicks({}); }}>Clear</button>
           )}
           {R.groups && (
             <div className="seg">
