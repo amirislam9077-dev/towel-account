@@ -106,12 +106,13 @@ export function poTotals(po) {
 }
 
 // Pile % + Ground % + Weft % + Fancy % = 100:
-// changing Pile, Ground or Fancy fills Weft; changing Weft fills Ground
+// Pile, Ground and Weft stay as typed; Fancy shows what is left (100 − the three).
+// Typing Fancy by hand changes Weft instead.
 export function withYarnPct(q, patch) {
   const n = { ...q, ...patch };
   const rest = (...xs) => String(+Math.max(0, 100 - xs.reduce((s, x) => s + num(x), 0)).toFixed(2));
-  if ('pilePct' in patch || 'groundPct' in patch || 'fancyPct' in patch) return { ...patch, weftPct: rest(n.pilePct, n.groundPct, n.fancyPct) };
-  if ('weftPct' in patch) return { ...patch, groundPct: rest(n.pilePct, n.weftPct, n.fancyPct) };
+  if ('pilePct' in patch || 'groundPct' in patch || 'weftPct' in patch) return { ...patch, fancyPct: rest(n.pilePct, n.groundPct, n.weftPct) };
+  if ('fancyPct' in patch) return { ...patch, weftPct: rest(n.pilePct, n.groundPct, n.fancyPct) };
   return patch;
 }
 
