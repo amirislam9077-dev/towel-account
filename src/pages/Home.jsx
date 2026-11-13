@@ -17,7 +17,7 @@ export default function Home() {
       <h1>Al Hasan Towel</h1>
       <p className="muted">Towel orders: quality, pile / ground / weft yarn, items and yarn requirement in one place</p>
       <div className="stat-chips" style={{ marginTop: 14 }}>
-        <div className="chip"><small>Open Towel POs</small><b>{open.length}</b></div>
+        <div className="chip"><small>Open Exporter Towel POs</small><b>{open.length}</b></div>
         <div className="chip"><small>Total Qty (Pcs)</small><b>{fmt(sum('pcs'))}</b></div>
         <div className="chip"><small>Total Lbs</small><b>{fmt(sum('lbs'), 2)}</b></div>
         <div className="chip net"><small>Net Bags Required</small><b>{fmt(sum('netBags'), 2)}</b></div>
@@ -25,8 +25,8 @@ export default function Home() {
       </div>
       <div className="tiles">
         <button className="tile big" onClick={() => nav('/towel/po')}>
-          <strong>Towel PO</strong>
-          <span>Weaving program: quality, Pile / Ground / Weft, items, Lbs and amount</span>
+          <strong>Exporter Towel PO</strong>
+          <span>Exporter order: quality, Pile / Ground / Weft / Fancy, items, Lbs and amount</span>
         </button>
         <button className="tile big" onClick={() => nav('/towel/exporters')}>
           <strong>Exporters</strong>

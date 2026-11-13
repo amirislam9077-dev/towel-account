@@ -16,7 +16,7 @@ const ICON = {
 // Sub-menu of Al Hasan Towel (more pages will be added: challans, payments, ledger, reports …)
 const SUB = [
   { to: '/towel', label: 'Dashboard', icon: 'home', exact: true, group: 0 },
-  { to: '/towel/po', label: 'Towel PO', icon: 'file', group: 1 },
+  { to: '/towel/po', label: 'Exporter Towel PO', icon: 'file', group: 1 },
   { to: '/towel/exporters', label: 'Exporters', icon: 'users', group: 2 },
 ];
 const SubIcon = ({ name }) => (

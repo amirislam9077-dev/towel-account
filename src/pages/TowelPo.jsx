@@ -142,7 +142,7 @@ export default function TowelPo() {
       else await api.create(COLL, body);
       showToast({
         title: id ? 'Updated successfully' : 'Saved successfully',
-        text: `Towel PO ${po.no}${partyName[po.exporterId] ? ` for ${partyName[po.exporterId]}` : ''} has been ${id ? 'updated' : 'saved'}.`,
+        text: `Exporter Towel PO ${po.no}${partyName[po.exporterId] ? ` for ${partyName[po.exporterId]}` : ''} has been ${id ? 'updated' : 'saved'}.`,
       });
       await loadList();
       if (id) nav(BASE);
@@ -157,10 +157,10 @@ export default function TowelPo() {
   }
 
   async function del(p) {
-    if (!confirm(`Delete Towel PO ${p.no}?`)) return;
+    if (!confirm(`Delete Exporter Towel PO ${p.no}?`)) return;
     try {
       await api.remove(COLL, p.id);
-      showToast({ type: 'delete', title: 'Deleted', text: `Towel PO ${p.no} has been deleted.` });
+      showToast({ type: 'delete', title: 'Deleted', text: `Exporter Towel PO ${p.no} has been deleted.` });
       loadList();
       if (p.id === id) nav(BASE);
     } catch (e) {
@@ -224,7 +224,7 @@ export default function TowelPo() {
       {po && (
         <form onSubmit={save} className="no-print po-compact">
           <div className="page-head">
-            <h2>{id ? `Edit Towel PO ${po.no}` : 'New Towel PO'}</h2>
+            <h2>{id ? `Edit Exporter Towel PO ${po.no}` : 'New Exporter Towel PO'}</h2>
             {id && <button type="button" onClick={() => nav(BASE)}>+ New instead</button>}
           </div>
 
@@ -238,7 +238,7 @@ export default function TowelPo() {
             </div>
             <div className="grid head-grid towel-head">
               <label>
-                Towel PO No *
+                Exporter Towel PO No *
                 <input value={po.no} disabled />
               </label>
               <label>
@@ -614,7 +614,7 @@ export default function TowelPo() {
               </div>
             )}
             <div className="sumbar-actions">
-              <button className="save-btn" type="submit" disabled={saving}>{saving ? 'Saving…' : id ? 'Update Towel PO' : 'Save Towel PO'}</button>
+              <button className="save-btn" type="submit" disabled={saving}>{saving ? 'Saving…' : id ? 'Update Exporter Towel PO' : 'Save Exporter Towel PO'}</button>
               <button type="button" onClick={() => (id ? nav(BASE) : setPo({ ...blankTowelPo(), no: po.no }))}>Cancel</button>
             </div>
           </div>
@@ -624,7 +624,7 @@ export default function TowelPo() {
 
       {/* ---- List ---- */}
       <div className="page-head list-head">
-        <h2>All Towel POs</h2>
+        <h2>All Exporter Towel POs</h2>
         <div className="row-actions big no-print">
           <button className="btn-print" onClick={() => window.print()}>Print</button>
           <button className="btn-excel" onClick={exportExcel}>Excel</button>
@@ -645,7 +645,7 @@ export default function TowelPo() {
       </div>
 
       <div className="stat-chips">
-        <div className="chip"><small>Towel POs</small><b>{list.length}</b></div>
+        <div className="chip"><small>Exporter Towel POs</small><b>{list.length}</b></div>
         <div className="chip"><small>Total Qty (Pcs)</small><b>{fmt(sum('pcs'))}</b></div>
         <div className="chip"><small>Total Lbs</small><b>{fmt(sum('lbs'), 2)}</b></div>
         <div className="chip net"><small>Net Bags Required</small><b>{fmt(sum('netBags'), 2)}</b></div>
@@ -704,7 +704,7 @@ export default function TowelPo() {
               );
             })}
             {!list.length && (
-              <tr><td colSpan={11} className="empty">No Towel PO found</td></tr>
+              <tr><td colSpan={11} className="empty">No Exporter Towel PO found</td></tr>
             )}
           </tbody>
           {list.length > 0 && (
