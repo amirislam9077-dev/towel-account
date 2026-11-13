@@ -4,7 +4,7 @@ import { api } from '../api.js';
 import { fmt, fmtDate, inWords, num } from '../util.js';
 import {
   YARNS, SHORTAGE_FIELDS, RATE_UNITS, rateUnitShort, yarnText, qualityTitle, construction, lbsPerDozen, itemLbs, itemAmount,
-  qualityCalc, poTotals, withYarnPct, emptyItem, emptyQuality, blankTowelPo, LBS_PER_BAG,
+  qualityCalc, poTotals, withYarnPct, emptyItem, emptyQuality, blankTowelPo, LBS_PER_BAG, GRAM_PER_LB,
 } from '../towelPo.js';
 import Notice from '../components/Notice.jsx';
 import LookupSelect from '../components/LookupSelect.jsx';
@@ -504,6 +504,47 @@ export default function TowelPo() {
                       <div className="calc hl-shortage">{fmt(c.shortage, 2)} %</div>
                     </label>
                   </div>
+
+                  {/* Gross weight of each item: Pcs Wt + Total Shortage %, × Total Pcs, in Lbs */}
+                  {(() => {
+                    const rows = qa.items.filter((it) => it.item || num(it.pcsWt) || num(it.qty));
+                    const list = rows.length ? rows : [qa.items[0]];
+                    const gross = (it) => num(it.pcsWt) * (1 + c.shortage / 100); // gram per piece
+                    const grossLbs = (it) => (gross(it) * num(it.qty)) / GRAM_PER_LB;
+                    const total = list.reduce((s, it) => s + grossLbs(it), 0);
+                    return (
+                      <div className="gross-rows">
+                        {list.map((it, k) => (
+                          <div key={it.key} className="grid gross-grid">
+                            <label>
+                              Item
+                              <div className="calc gross-item">{it.item || `Item ${k + 1}`}</div>
+                            </label>
+                            <label>
+                              Pcs Wt (Gram)
+                              <div className="calc">{num(it.pcsWt) ? `${fmt(it.pcsWt, 2)} Gm` : '—'}</div>
+                            </label>
+                            <label title={`Pcs Wt + ${fmt(c.shortage, 2)} % Total Shortage`}>
+                              Gross Pcs Wt (Gram)
+                              <div className="calc hl-base">{num(it.pcsWt) ? `${fmt(gross(it), 2)} Gm` : '—'}</div>
+                            </label>
+                            <label>
+                              Total Pcs
+                              <div className="calc">{num(it.qty) ? `${fmt(it.qty)} Pcs` : '—'}</div>
+                            </label>
+                            <label title="Gross Pcs Wt × Total Pcs ÷ 453.59 (gram → Lbs)">
+                              Total Weight (Lbs)
+                              <div className="calc hl-total">{grossLbs(it) ? `${fmt(grossLbs(it), 2)} Lbs` : '—'}</div>
+                            </label>
+                          </div>
+                        ))}
+                        {list.length > 1 && (
+                          <div className="gross-total">Total Weight (all items): <b>{fmt(total, 2)} Lbs</b></div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   <div className="table-wrap" style={{ marginTop: 12 }}>
                     <table className="yarn-req">
                       <thead>

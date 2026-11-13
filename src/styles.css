@@ -980,3 +980,9 @@ table.towel-items tfoot td, table.yarn-req tfoot td { font-weight: 700; backgrou
 }
 .po-section .towel-subhead { margin-top: 16px; padding-top: 10px; border-top: 1px dashed var(--border); font-weight: 700; color: var(--primary-dark); font-size: 13px; }
 .po-section .towel-subhead .sec-ref { margin-left: auto; }
+/* Gross weight boxes (after Total Shortage) */
+.gross-rows { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.grid.gross-grid { grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)); }
+.calc.gross-item { text-align: left; color: var(--primary-dark); }
+.gross-total { text-align: right; font-size: 13px; color: var(--primary-dark); }
+@media (max-width: 800px) { .grid.gross-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
